@@ -18,3 +18,48 @@ model User {
   email     String   @unique
   name      String?
 }
+
+model Paciente {
+  id                Int               @id @default(autoincrement())
+  nombre            String
+  edad              Int
+  genero            String
+  email             String            @unique
+  telefono          String?
+  direccion         String?
+  tipoSangre        String?
+  alergias          String?
+  antecedentes      String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  historiasClinicas HistoriaClinica[]
+  citas             Cita[]
+}
+
+model HistoriaClinica {
+  id            Int      @id @default(autoincrement())
+  pacienteId    Int
+  paciente      Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  fecha         DateTime @default(now())
+  motivo        String
+  sintomas      String
+  diagnostico   String
+  tratamiento   String
+  presionArt    String?
+  pulso         Int?
+  temperatura   Float?
+  peso          Float?
+  medico        String
+  createdAt     DateTime @default(now())
+}
+
+model Cita {
+  id          Int      @id @default(autoincrement())
+  pacienteId  Int
+  paciente    Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  fecha       DateTime
+  motivo      String
+  estado      String   // PENDIENTE, EN_CURSO, COMPLETADA, CANCELADA
+  medico      String
+  createdAt   DateTime @default(now())
+}

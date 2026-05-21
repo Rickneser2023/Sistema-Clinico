@@ -1,8 +1,9 @@
 import './globals.css'
+import DashboardLayout from '@/components/DashboardLayout'
 
 export const metadata = {
-  title: 'Organizador de Horarios',
-  description: 'Sistema de gestión de horarios para universidades y escuelas',
+  title: 'MediHist - Sistema de Gestión Clínica',
+  description: 'Sistema de gestión de historias clínicas y dashboard médico profesional',
 }
 
 export default function RootLayout({
@@ -12,7 +13,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <DashboardLayout>
+          {children}
+        </DashboardLayout>
+      </body>
     </html>
   )
 }
