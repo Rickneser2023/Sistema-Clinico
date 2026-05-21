@@ -22,6 +22,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   } else if (pathname === '/nueva-historia') {
     title = "Nueva Historia Clínica";
     subtitle = "Formulario de registro de consulta y examen médico";
+  } else if (pathname === '/ejecutivo') {
+    title = "Dashboard Ejecutivo (EIS)";
+    subtitle = "KPIs estratégicos e indicadores financieros de la clínica";
+  } else if (pathname === '/atencion') {
+    title = "Sala de Espera (Kanban)";
+    subtitle = "Flujo de atención y estado operativo de consultas";
+  } else if (pathname === '/agenda') {
+    title = "Agenda de Consultas";
+    subtitle = "Calendario semanal de citas y disponibilidad médica";
+  } else if (pathname === '/facturacion') {
+    title = "Módulo de Facturación y Caja";
+    subtitle = "Gestión de ingresos, facturación diaria y cuentas por cobrar";
+  } else if (pathname === '/medicos') {
+    title = "Médicos y Consultorios";
+    subtitle = "Planificación del personal y estado de boxes de consulta";
   }
 
   return (

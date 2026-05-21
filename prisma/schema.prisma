@@ -63,3 +63,32 @@ model Cita {
   medico      String
   createdAt   DateTime @default(now())
 }
+
+model Medico {
+  id            Int          @id @default(autoincrement())
+  nombre        String
+  especialidad  String
+  turno         String       // MAÑANA, TARDE
+  activo        Boolean      @default(true)
+  consultorioId Int?
+  consultorio   Consultorio? @relation(fields: [consultorioId], references: [id])
+  createdAt     DateTime     @default(now())
+}
+
+model Consultorio {
+  id        Int      @id @default(autoincrement())
+  numero    String   @unique
+  estado    String   // LIBRE, OCUPADO
+  medicos   Medico[]
+  createdAt DateTime @default(now())
+}
+
+model Factura {
+  id           Int      @id @default(autoincrement())
+  pacienteName String
+  monto        Float
+  metodoPago   String   // EFECTIVO, TARJETA, TRANSFERENCIA
+  estado       String   // PAGADA, PENDIENTE
+  categoria    String   // CONSULTA, PROCEDIMIENTO, LABORATORIO
+  fecha        DateTime @default(now())
+}
