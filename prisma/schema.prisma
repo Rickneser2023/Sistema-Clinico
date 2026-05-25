@@ -52,6 +52,7 @@ model Paciente {
   apellido         String
   fechaNacimiento  DateTime
   genero           Genero
+  tipoSangre       String?
   contacto         String?
   alergias         String?
   antecedentes     String?
@@ -75,10 +76,10 @@ model HistoriaClinica {
   planTratamiento String?
 
   // Signos vitales
-  presion         String?  // Ej: "120/80"
-  pulso           Decimal? // Latidos por minuto
-  temperatura     Decimal? // En grados Celsius
-  peso            Decimal? // En kg
+  presion         String   // Ej: "120/80"
+  pulso           Decimal  // Latidos por minuto
+  temperatura     Decimal  // En grados Celsius
+  peso            Decimal  // En kg
 
   // Relación con Paciente
   pacienteId      String
