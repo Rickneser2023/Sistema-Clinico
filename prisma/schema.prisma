@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,82 +10,105 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Enums para roles, géneros y estados
+enum Role {
+  ADMIN
+  DOCTOR
+  RECEPCIONISTA
+}
+
+enum Genero {
+  MASCULINO
+  FEMENINO
+  OTRO
+}
+
+enum EstadoCita {
+  PROGRAMADA
+  COMPLETADA
+  CANCELADA
+}
+
+// Modelo User para autenticación básica
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  rol          Role     @default(DOCTOR)
+  nombre       String
+
+  // Relaciones inversas (1:N)
+  historiasCreadas HistoriaClinica[]
+  citasGestionadas Cita[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
+// Modelo Paciente para datos personales
 model Paciente {
-  id                Int               @id @default(autoincrement())
-  nombre            String
-  edad              Int
-  genero            String
-  email             String            @unique
-  telefono          String?
-  direccion         String?
-  tipoSangre        String?
-  alergias          String?
-  antecedentes      String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id               String   @id @default(uuid())
+  nombre           String
+  apellido         String
+  fechaNacimiento  DateTime
+  genero           Genero
+  contacto         String?
+  alergias         String?
+  antecedentes     String?
+  estadoClinico    String?
+
+  // Relaciones inversas (1:N)
   historiasClinicas HistoriaClinica[]
-  citas             Cita[]
+  citas            Cita[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
+// Modelo HistoriaClinica para el registro de consultas
 model HistoriaClinica {
-  id            Int      @id @default(autoincrement())
-  pacienteId    Int
-  paciente      Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
-  fecha         DateTime @default(now())
-  motivo        String
-  sintomas      String
-  diagnostico   String
-  tratamiento   String
-  presionArt    String?
-  pulso         Int?
-  temperatura   Float?
-  peso          Float?
-  medico        String
-  createdAt     DateTime @default(now())
+  id              String   @id @default(uuid())
+  fecha           DateTime @default(now())
+  motivo          String
+  sintomas        String
+  diagnostico     String?
+  planTratamiento String?
+
+  // Signos vitales
+  presion         String?  // Ej: "120/80"
+  pulso           Decimal? // Latidos por minuto
+  temperatura     Decimal? // En grados Celsius
+  peso            Decimal? // En kg
+
+  // Relación con Paciente
+  pacienteId      String
+  paciente        Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  // Relación con Médico (User)
+  // Usamos onDelete: Restrict por seguridad médica. No se puede eliminar un doctor si tiene historias clínicas creadas. (Se debería desactivar al usuario en su lugar)
+  doctorId        String
+  doctor          User     @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
+// Modelo Cita para gestión de agenda
 model Cita {
-  id          Int      @id @default(autoincrement())
-  pacienteId  Int
-  paciente    Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
-  fecha       DateTime
-  motivo      String
-  estado      String   // PENDIENTE, EN_CURSO, COMPLETADA, CANCELADA
-  medico      String
-  createdAt   DateTime @default(now())
-}
+  id         String     @id @default(uuid())
+  fechaHora  DateTime
+  motivo     String
+  estado     EstadoCita @default(PROGRAMADA)
 
-model Medico {
-  id            Int          @id @default(autoincrement())
-  nombre        String
-  especialidad  String
-  turno         String       // MAÑANA, TARDE
-  activo        Boolean      @default(true)
-  consultorioId Int?
-  consultorio   Consultorio? @relation(fields: [consultorioId], references: [id])
-  createdAt     DateTime     @default(now())
-}
+  // Relación con Paciente
+  pacienteId String
+  paciente   Paciente   @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
 
-model Consultorio {
-  id        Int      @id @default(autoincrement())
-  numero    String   @unique
-  estado    String   // LIBRE, OCUPADO
-  medicos   Medico[]
-  createdAt DateTime @default(now())
-}
+  // Relación con Usuario que gestiona o atiende la cita
+  // Usamos onDelete: Restrict para no perder el registro de quién agendó o a quién le pertenece la cita si el usuario se elimina.
+  usuarioId  String
+  usuario    User       @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
 
-model Factura {
-  id           Int      @id @default(autoincrement())
-  pacienteName String
-  monto        Float
-  metodoPago   String   // EFECTIVO, TARJETA, TRANSFERENCIA
-  estado       String   // PAGADA, PENDIENTE
-  categoria    String   // CONSULTA, PROCEDIMIENTO, LABORATORIO
-  fecha        DateTime @default(now())
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 }
