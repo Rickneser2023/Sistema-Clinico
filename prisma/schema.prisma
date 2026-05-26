@@ -29,6 +29,17 @@ enum EstadoCita {
   CANCELADA
 }
 
+enum EstadoMedico {
+  ACTIVO
+  INACTIVO
+}
+
+enum EstadoBox {
+  DISPONIBLE
+  OCUPADO
+  MANTENIMIENTO
+}
+
 // Modelo User para autenticación básica
 model User {
   id           String   @id @default(uuid())
@@ -38,11 +49,45 @@ model User {
   nombre       String
 
   // Relaciones inversas (1:N)
-  historiasCreadas HistoriaClinica[]
-  citasGestionadas Cita[]
+  medico           Medico? // Un usuario puede ser Médico
+  citasGestionadas Cita[]  // Citas creadas por este usuario (como recepcionista o médico)
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// Modelo Medico
+model Medico {
+  id             String       @id @default(uuid())
+  especialidad   String
+  numColegiatura String       @unique
+  estado         EstadoMedico @default(ACTIVO)
+
+  // Relación con User
+  userId         String       @unique
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relaciones Inversas
+  historias      HistoriaClinica[]
+  citas          Cita[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+// Modelo Box (Consultorio)
+model Box {
+  id         String     @id @default(uuid())
+  nombre     String     @unique
+  capacidad  Int        @default(1)
+  tipo       String     
+  estado     EstadoBox  @default(DISPONIBLE)
+
+  citas      Cita[]
+  historias  HistoriaClinica[]
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 }
 
 // Modelo Paciente para datos personales
@@ -85,10 +130,13 @@ model HistoriaClinica {
   pacienteId      String
   paciente        Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
 
-  // Relación con Médico (User)
-  // Usamos onDelete: Restrict por seguridad médica. No se puede eliminar un doctor si tiene historias clínicas creadas. (Se debería desactivar al usuario en su lugar)
-  doctorId        String
-  doctor          User     @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  // Relación con Médico (Modelo Medico)
+  medicoId        String
+  medico          Medico   @relation(fields: [medicoId], references: [id], onDelete: Restrict)
+
+  // Relación con Box
+  boxId           String?
+  box             Box?     @relation(fields: [boxId], references: [id], onDelete: SetNull)
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -105,10 +153,17 @@ model Cita {
   pacienteId String
   paciente   Paciente   @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
 
-  // Relación con Usuario que gestiona o atiende la cita
-  // Usamos onDelete: Restrict para no perder el registro de quién agendó o a quién le pertenece la cita si el usuario se elimina.
+  // Quién agendó la cita
   usuarioId  String
   usuario    User       @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  // Médico asignado a la cita
+  medicoId   String?
+  medico     Medico?    @relation(fields: [medicoId], references: [id], onDelete: SetNull)
+
+  // Box asignado a la cita
+  boxId      String?
+  box        Box?       @relation(fields: [boxId], references: [id], onDelete: SetNull)
 
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt

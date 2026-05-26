@@ -19,12 +19,18 @@ export default async function NewHistoryPage() {
     }
   });
 
-  // Traer doctores
-  const doctores = await prisma.user.findMany({
-    where: { rol: 'DOCTOR' },
-    orderBy: { nombre: 'asc' },
-    select: { id: true, nombre: true }
+  // Traer médicos reales (Modelo Medico con su User)
+  const doctores = await prisma.medico.findMany({
+    where: { estado: 'ACTIVO' },
+    include: { user: true },
+    orderBy: { user: { nombre: 'asc' } }
   });
+
+  // Mapear para el componente
+  const doctoresMapped = doctores.map(doc => ({
+    id: doc.id,
+    nombre: doc.user.nombre + ' (' + doc.especialidad + ')'
+  }));
 
   return (
     <Suspense fallback={
@@ -32,7 +38,7 @@ export default async function NewHistoryPage() {
         <p style={{ fontWeight: 600, color: 'var(--secondary-light)' }}>Cargando datos...</p>
       </div>
     }>
-      <HistoriaForm pacientes={pacientes} doctores={doctores} />
+      <HistoriaForm pacientes={pacientes} doctores={doctoresMapped} />
     </Suspense>
   );
 }

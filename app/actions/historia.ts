@@ -63,24 +63,18 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
   const data = validatedFields.data;
 
   try {
-    // Verificar si el doctor existe, si no, crear un default temporal
-    // Esto es temporal hasta que haya un sistema real de usuarios
-    let activeDoctor = await prisma.user.findUnique({
+    // Verificar si el médico existe
+    let activeMedico = await prisma.medico.findUnique({
       where: { id: data.doctorId }
     });
 
-    if (!activeDoctor) {
-       // Buscar cualquier doctor disponible o crear uno de prueba
-       activeDoctor = await prisma.user.findFirst({ where: { rol: "DOCTOR" }});
-       if (!activeDoctor) {
-          activeDoctor = await prisma.user.create({
-             data: {
-                nombre: "Dr. Default (Temporal)",
-                email: "default@clinica.com",
-                passwordHash: "dummy",
-                rol: "DOCTOR"
-             }
-          });
+    if (!activeMedico) {
+       // Buscar cualquier médico activo
+       activeMedico = await prisma.medico.findFirst({ 
+         where: { estado: 'ACTIVO' }
+       });
+       if (!activeMedico) {
+         throw new Error("No hay médicos activos en el sistema para asignar esta historia.");
        }
     }
 
@@ -108,7 +102,7 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
       await tx.historiaClinica.create({
         data: {
           pacienteId: finalPacienteId,
-          doctorId: activeDoctor.id, // ID verificado
+          medicoId: activeMedico.id, // ID del Médico verificado
           motivo: data.motivo,
           sintomas: data.sintomas,
           diagnostico: data.diagnostico,
