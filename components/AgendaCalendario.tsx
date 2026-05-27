@@ -158,12 +158,34 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
 
   return (
     <div className="agenda-container" style={{ position: 'relative' }}>
-      {/* Leyenda Visual */}
-      <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem', fontSize: '0.8rem', padding: '0.75rem', backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', border: '2px solid var(--primary-color)' }}></span> Programada</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#fef3c7', border: '2px solid #d97706' }}></span> En Curso</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#d1fae5', border: '2px solid #059669' }}></span> Completada</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-light)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#f1f5f9', border: '2px solid #64748b' }}></span> Cancelada</div>
+      {/* Controles Superiores */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+        {/* Leyenda Visual */}
+        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', padding: '0.75rem', backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', border: '2px solid var(--primary-color)' }}></span> Programada</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#fef3c7', border: '2px solid #d97706' }}></span> En Curso</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#d1fae5', border: '2px solid #059669' }}></span> Completada</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-light)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#f1f5f9', border: '2px solid #64748b' }}></span> Cancelada</div>
+        </div>
+
+        <button 
+          onClick={() => {
+            const now = new Date();
+            const toLocalISO = (d: Date) => {
+              const pad = (n: number) => n.toString().padStart(2, '0');
+              return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            };
+            const end = new Date(now);
+            end.setMinutes(now.getMinutes() + 30);
+            setSelectedSlot({ inicio: toLocalISO(now), fin: toLocalISO(end) });
+            setModalMode('NEW_CITA');
+            setErrorMsg(null);
+          }}
+          style={{ padding: '0.75rem 1.5rem', backgroundColor: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Agendar Cita Libre
+        </button>
       </div>
 
       <Card title="Calendario Semanal" subtitle="Haz clic en un bloque de 30 minutos para agendar una cita al instante">
@@ -194,7 +216,19 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
           {/* Filas de Horas */}
           {hours.map(h => (
             <React.Fragment key={h}>
-              <div style={{ backgroundColor: 'white', padding: '10px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--secondary-light)', fontWeight: 600 }}>
+              <div style={{ 
+                backgroundColor: '#f8fafc', 
+                padding: '10px', 
+                textAlign: 'right', 
+                fontSize: '0.85rem', 
+                color: 'var(--secondary-color)', 
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                borderBottom: '2px solid #cbd5e1',
+                borderRight: '1px solid #e2e8f0'
+              }}>
                 {h}:00
               </div>
               {days.map((_, dayIdx) => {
@@ -207,12 +241,12 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
                       flex: 1, 
                       minHeight: '45px', 
                       borderBottom: mins === 0 ? '1px dashed #e2e8f0' : 'none',
-                      padding: '2px 4px',
+                      padding: '4px',
                       cursor: 'pointer',
                       transition: 'background-color 0.2s ease',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '2px'
+                      gap: '4px'
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -258,7 +292,7 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
                     style={{ 
                       backgroundColor: 'white', 
                       borderLeft: '1px solid #f1f5f9',
-                      borderTop: '1px solid #f1f5f9',
+                      borderBottom: '2px solid #cbd5e1',
                       display: 'flex',
                       flexDirection: 'column'
                     }}
