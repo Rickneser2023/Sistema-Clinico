@@ -36,6 +36,8 @@ export default async function AtencionPage() {
   // Mapear los datos de prisma al formato que necesita el Kanban
   const citasKanban = citas.map(c => ({
     id: c.id,
+    pacienteId: c.pacienteId,
+    medicoId: c.medicoId,
     pacienteNombre: `${c.paciente.nombre} ${c.paciente.apellido}`,
     medicoAsignado: `Dr. ${c.medico.user.nombre}`,
     motivo: c.motivo,

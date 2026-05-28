@@ -4,6 +4,9 @@ import { z } from "zod";
 const GeneroEnum = z.enum(["MASCULINO", "FEMENINO", "OTRO"]);
 
 export const HistoriaClinicaSchema = z.object({
+  // Identificador de cita (opcional) para flujo desde Sala de Espera
+  citaId: z.string().optional(),
+
   // Identificador de paciente
   pacienteId: z.string().min(1, "Debe seleccionar un paciente"),
 

@@ -31,6 +31,7 @@ export type FormState = {
 export async function createHistoriaClinica(prevState: FormState, formData: FormData): Promise<FormState> {
   // Convert FormData to an object for Zod validation
   const rawData = {
+    citaId: formData.get("citaId"),
     pacienteId: formData.get("pacienteId"),
     nombre: formData.get("nombre"),
     apellido: formData.get("apellido"),
@@ -135,6 +136,14 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
           peso: data.peso,
         },
       });
+
+      // 3. Actualizar el estado de la cita a 'COMPLETADA' si provenimos de la sala de espera
+      if (data.citaId) {
+        await tx.cita.update({
+          where: { id: data.citaId },
+          data: { estado: 'COMPLETADA' }
+        });
+      }
     });
 
   } catch (error) {
@@ -147,8 +156,14 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
     };
   }
 
-  // Redirigir en caso de éxito (esto rompe el flujo actual de try/catch si se hace dentro)
-  // por lo tanto lo hacemos al final de la función
-  revalidatePath("/pacientes");
-  redirect("/pacientes");
+  // Redirigir en caso de éxito
+  // Si la historia vino de una cita, volvemos a la Sala de Espera para seguir el flujo
+  if (data.citaId) {
+    revalidatePath("/atencion");
+    revalidatePath("/agenda");
+    redirect("/atencion");
+  } else {
+    revalidatePath("/pacientes");
+    redirect("/pacientes");
+  }
 }

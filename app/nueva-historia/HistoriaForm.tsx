@@ -92,6 +92,9 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
         </div>
       )}
 
+      {/* Hidden Cita ID for auto-completing the appointment status */}
+      <input type="hidden" name="citaId" value={searchParams.get('citaId') || ''} />
+
       {/* SECCIÓN 1: Selección o Datos Demográficos */}
       <Card title="Ficha del Paciente" subtitle="Selecciona un paciente existente o registra los datos de uno nuevo">
         
@@ -365,6 +368,7 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
               id="doctorId"
               name="doctorId"
               className="form-control"
+              defaultValue={searchParams.get('medicoId') || ''}
             >
               <option value="">-- SELECCIONE MÉDICO --</option>
               {doctores.map((doc) => (

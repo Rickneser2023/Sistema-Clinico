@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useTransition, useOptimistic } from 'react';
+import { useRouter } from 'next/navigation';
 import { updateEstadoCita } from '@/app/actions/agenda';
 
 type CitaKanban = {
   id: string;
+  pacienteId: string;
+  medicoId: string;
   pacienteNombre: string;
   medicoAsignado: string;
   motivo: string;
@@ -50,6 +53,7 @@ const COLUMNAS = [
 ];
 
 export default function KanbanAtencion({ citasIniciales }: Props) {
+  const router = useRouter();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => {
     setMounted(true);
@@ -68,15 +72,19 @@ export default function KanbanAtencion({ citasIniciales }: Props) {
 
   const [isPending, startTransition] = useTransition();
 
-  const avanzar = (id: string, estadoActual: string) => {
+  const avanzar = (cita: CitaKanban) => {
     let nuevoEstado = '';
-    if (estadoActual === 'PROGRAMADA') nuevoEstado = 'EN_CURSO';
-    else if (estadoActual === 'EN_CURSO') nuevoEstado = 'COMPLETADA';
+    if (cita.estado === 'PROGRAMADA') nuevoEstado = 'EN_CURSO';
+    else if (cita.estado === 'EN_CURSO') nuevoEstado = 'COMPLETADA';
     else return;
 
     startTransition(async () => {
-      addOptimisticCita({ id, nuevoEstado });
-      await updateEstadoCita(id, nuevoEstado);
+      addOptimisticCita({ id: cita.id, nuevoEstado });
+      await updateEstadoCita(cita.id, nuevoEstado);
+
+      if (nuevoEstado === 'EN_CURSO') {
+        router.push(`/nueva-historia?patientId=${cita.pacienteId}&medicoId=${cita.medicoId}&citaId=${cita.id}`);
+      }
     });
   };
 
@@ -194,7 +202,7 @@ export default function KanbanAtencion({ citasIniciales }: Props) {
                         <button
                           className="btn btn-primary"
                           style={{ fontSize: '0.72rem', padding: '0.3rem 0.6rem', flex: 2, backgroundColor: col.color, borderColor: col.color }}
-                          onClick={() => avanzar(p.id, p.estado)}
+                          onClick={() => avanzar(p)}
                           disabled={isPending}
                         >
                           {col.id === 'PROGRAMADA' ? 'Iniciar Consulta' : 'Finalizar'}
