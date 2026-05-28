@@ -39,7 +39,7 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
   }
 
   const { pacienteId, medicoId, boxId, motivo, fechaHoraInicio, fechaHoraFin } = validatedFields.data;
-  
+
   const start = new Date(fechaHoraInicio);
   const end = new Date(fechaHoraFin);
 
@@ -106,7 +106,7 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
         usuarioId: adminUser.id,
       }
     });
-    
+
   } catch (error) {
     console.error("Error creating cita:", error);
     return {
@@ -155,6 +155,7 @@ export async function updateEstadoCita(citaId: string, nuevoEstado: any) {
       data: { estado: nuevoEstado }
     });
     revalidatePath("/agenda");
+    revalidatePath("/atencion");
     return { success: true, message: `Cita actualizada a ${nuevoEstado}.` };
   } catch (error) {
     console.error("Error updating cita:", error);

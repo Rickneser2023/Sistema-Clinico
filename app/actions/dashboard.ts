@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 export async function getDashboardKPIs() {
   try {
     const totalPacientes = await prisma.paciente.count();
-    
+
     // Contar citas por estado
     const citasAgrupadas = await prisma.cita.groupBy({
       by: ['estado'],
@@ -53,7 +53,7 @@ export async function getBoxOccupancy() {
       include: {
         citas: {
           where: {
-            fechaHora: {
+            fechaHoraInicio: {
               gte: startOfHour,
               lt: endOfHour
             },
