@@ -1,6 +1,6 @@
 import React from 'react';
 import Card from '@/components/Card';
-import { getFacturacionDashboardData } from '@/app/actions/facturacion';
+import { getFacturacionDashboardData, registrarPagoFactura } from '@/app/actions/facturacion';
 
 const formatCLP = (val: number) =>
   new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(val);
@@ -74,7 +74,7 @@ export default async function FacturacionPage() {
       </div>
 
       {/* Desglose + Tasa de pago */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
+      <div className="dashboard-grid">
         {/* Tabla de Facturas */}
         <Card title="Últimas Facturas del Día" subtitle="Registro de transacciones de la jornada actual">
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
@@ -89,7 +89,9 @@ export default async function FacturacionPage() {
                   <th>ID</th>
                   <th>Paciente</th>
                   <th>Categoría</th>
-                  <th>Monto</th>
+                  <th>Monto Total</th>
+                  <th>Adelanto</th>
+                  <th>Pendiente</th>
                   <th>Método</th>
                   <th>Estado</th>
                   <th>Acción</th>
@@ -108,25 +110,40 @@ export default async function FacturacionPage() {
                         {f.categoria}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 700, color: 'var(--secondary-color)' }}>{formatCLP(f.monto)}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--secondary-color)' }}>{formatCLP(f.montoTotal)}</td>
+                    <td style={{ color: '#10b981', fontWeight: 600 }}>{formatCLP(f.montoAdelanto)}</td>
+                    <td style={{ color: f.estado === 'PAGADO' ? '#64748b' : 'var(--color-critico)', fontWeight: 700 }}>
+                      {f.estado === 'PAGADO' ? formatCLP(0) : formatCLP(f.montoTotal - f.montoAdelanto)}
+                    </td>
                     <td className="text-muted" style={{ fontSize: '0.85rem' }}>{f.metodoPago}</td>
                     <td>
-                      <span className={`badge ${f.estado === 'PAGADA' ? 'badge-estable' : 'badge-critico'}`}>
-                        {f.estado === 'PAGADA' ? 'Pagada' : 'Pendiente'}
+                      <span className={`badge ${f.estado === 'PAGADO' ? 'badge-estable' : 'badge-critico'}`}>
+                        {f.estado === 'PAGADO' ? 'Pagada' : 'Pendiente'}
                       </span>
                     </td>
                     <td>
-                      <form action={async () => {
-                        "use server";
-                        // Future implementation for downloading or paying
-                      }}>
-                        <button
-                          className="btn btn-outline"
-                          style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem' }}
-                        >
-                          Ver
-                        </button>
-                      </form>
+                      {f.estado === 'PENDIENTE' ? (
+                        <form action={async (formData: FormData) => {
+                          "use server";
+                          const metodo = formData.get("metodo") as "EFECTIVO" | "TARJETA" | "TRANSFERENCIA";
+                          await registrarPagoFactura(f.id, metodo);
+                        }} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <select name="metodo" className="form-control" style={{ fontSize: '0.75rem', padding: '0.2rem 0.4rem', height: 'auto', minWidth: '80px' }}>
+                            <option value="EFECTIVO">Efectivo</option>
+                            <option value="TARJETA">Tarjeta</option>
+                            <option value="TRANSFERENCIA">Transf.</option>
+                          </select>
+                          <button
+                            type="submit"
+                            className="btn btn-primary"
+                            style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem' }}
+                          >
+                            Cobrar
+                          </button>
+                        </form>
+                      ) : (
+                        <span className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Completado</span>
+                      )}
                     </td>
                   </tr>
                 ))}

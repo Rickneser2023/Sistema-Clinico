@@ -65,7 +65,7 @@ export async function getFacturacionDashboardData() {
       const montoAdelanto = Number(f.montoAdelanto) || 0;
       
       // Calculate earnings and receivables based on payment state and advance payments
-      if (f.estadoPago === 'PAGADA') {
+      if (f.estadoPago === 'PAGADO') {
         ingresosHoy += montoTotal;
         facturasPagadas++;
       } else if (f.estadoPago === 'PENDIENTE') {
@@ -74,9 +74,9 @@ export async function getFacturacionDashboardData() {
       }
 
       // Desglose
-      if (f.categoria === 'Consulta') desglose.consultas += (f.estadoPago === 'PAGADA' ? montoTotal : montoAdelanto);
-      else if (f.categoria === 'Procedimiento') desglose.procedimientos += (f.estadoPago === 'PAGADA' ? montoTotal : montoAdelanto);
-      else desglose.laboratorio += (f.estadoPago === 'PAGADA' ? montoTotal : montoAdelanto);
+      if (f.categoria === 'Consulta') desglose.consultas += (f.estadoPago === 'PAGADO' ? montoTotal : montoAdelanto);
+      else if (f.categoria === 'Procedimiento') desglose.procedimientos += (f.estadoPago === 'PAGADO' ? montoTotal : montoAdelanto);
+      else desglose.laboratorio += (f.estadoPago === 'PAGADO' ? montoTotal : montoAdelanto);
 
       return {
         id: f.id,
