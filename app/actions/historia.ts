@@ -165,6 +165,63 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
             });
           }
         }
+      } else {
+        // FLUJO PACIENTE "DE FRENTE": No hay cita previa
+        // 1. Encontrar un Box disponible para la especialidad del médico
+        const medicoDetalle = await tx.medico.findUnique({
+          where: { id: activeMedico.id },
+          include: { especialidad: true }
+        });
+
+        let boxId = "";
+        const boxEspecialidad = await tx.box.findFirst({
+          where: { especialidadId: medicoDetalle?.especialidadId }
+        });
+
+        if (boxEspecialidad) {
+          boxId = boxEspecialidad.id;
+        } else {
+          // Fallback a cualquier box si no hay uno específico
+          const anyBox = await tx.box.findFirst();
+          if (anyBox) boxId = anyBox.id;
+          else throw new Error("No hay consultorios (boxes) en el sistema para asignar esta atención.");
+        }
+
+        const adminUser = await tx.user.findFirst();
+        if (!adminUser) throw new Error("Sistema sin usuarios administrativos.");
+
+        const now = new Date();
+
+        // 2. Crear Cita "Fantasma" Completada
+        const nuevaCita = await tx.cita.create({
+          data: {
+            pacienteId: finalPacienteId,
+            medicoId: activeMedico.id,
+            boxId: boxId,
+            motivo: data.motivo,
+            fechaHoraInicio: now,
+            fechaHoraFin: now,
+            usuarioId: adminUser.id,
+            estado: 'COMPLETADA'
+          }
+        });
+
+        // 3. Crear Factura desde cero por el monto total
+        const precioFinal = data.precioFinal !== undefined && data.precioFinal !== null 
+                              ? data.precioFinal 
+                              : (medicoDetalle?.especialidad?.precioBase || 0);
+
+        await tx.factura.create({
+          data: {
+            montoBase: precioFinal,
+            montoAdelanto: 0,
+            montoTotal: precioFinal,
+            estadoPago: 'PENDIENTE',
+            citaId: nuevaCita.id,
+            pacienteId: finalPacienteId,
+            categoria: 'Consulta'
+          }
+        });
       }
     });
 

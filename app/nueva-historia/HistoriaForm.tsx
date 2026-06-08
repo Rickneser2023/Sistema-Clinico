@@ -20,6 +20,7 @@ interface Paciente {
 interface Doctor {
   id: string;
   nombre: string;
+  precioBase: number;
 }
 
 interface HistoriaFormProps {
@@ -48,6 +49,22 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
   const [contacto, setContacto] = useState('');
   const [alergias, setAlergias] = useState('');
   const [antecedentes, setAntecedentes] = useState('');
+
+  // Estados para médico y precio
+  const [selectedDoctorId, setSelectedDoctorId] = useState(searchParams.get('medicoId') || '');
+  const [precioFinal, setPrecioFinal] = useState('');
+
+  // Cargar precio cuando se cambia el médico
+  const handleDoctorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const docId = e.target.value;
+    setSelectedDoctorId(docId);
+    const doc = doctores.find(d => d.id === docId);
+    if (doc) {
+      setPrecioFinal(doc.precioBase.toString());
+    } else {
+      setPrecioFinal('');
+    }
+  };
 
   // Cargar datos si se pasa un patientId por la URL o se selecciona uno
   useEffect(() => {
@@ -368,7 +385,8 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
               id="doctorId"
               name="doctorId"
               className="form-control"
-              defaultValue={searchParams.get('medicoId') || ''}
+              value={selectedDoctorId}
+              onChange={handleDoctorChange}
             >
               <option value="">-- SELECCIONE MÉDICO --</option>
               {doctores.map((doc) => (
@@ -385,8 +403,10 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
               name="precioFinal"
               type="number" 
               className="form-control" 
-              placeholder="Ej. Modificar precio si aplica (dejar vacío para mantener original)"
+              placeholder="Ej. Modificar precio si aplica"
               min="0"
+              value={precioFinal}
+              onChange={(e) => setPrecioFinal(e.target.value)}
             />
             {state.errors?.precioFinal && <span style={{ color: 'red', fontSize: '0.85rem' }}>{state.errors.precioFinal.join(', ')}</span>}
           </div>

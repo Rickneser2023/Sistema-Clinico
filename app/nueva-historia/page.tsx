@@ -20,17 +20,18 @@ export default async function NewHistoryPage() {
     }
   });
 
-  // Traer médicos reales (Modelo Medico con su User)
+  // Traer médicos reales (Modelo Medico con su User y Especialidad)
   const doctores = await prisma.medico.findMany({
     where: { estado: 'ACTIVO' },
-    include: { user: true },
+    include: { user: true, especialidad: true },
     orderBy: { user: { nombre: 'asc' } }
   });
 
   // Mapear para el componente
   const doctoresMapped = doctores.map(doc => ({
     id: doc.id,
-    nombre: doc.user.nombre + ' (' + doc.especialidad + ')'
+    nombre: doc.user.nombre + ' (' + doc.especialidad.nombre + ')',
+    precioBase: Number(doc.especialidad.precioBase)
   }));
 
   return (
