@@ -6,7 +6,7 @@ import { GetPacientesSchema, GetPacientesParams } from "@/lib/validations/pacien
 export async function getPacientes(params: GetPacientesParams) {
   // Validate input to prevent injection or malformed data
   const parsed = GetPacientesSchema.safeParse(params);
-  
+
   if (!parsed.success) {
     return { data: [], total: 0, error: "Parámetros de búsqueda inválidos" };
   }
@@ -70,8 +70,8 @@ export async function getPacientes(params: GetPacientesParams) {
       genero: p.genero === 'MASCULINO' ? 'Masculino' : p.genero === 'FEMENINO' ? 'Femenino' : 'Otro',
       tipoSangre: p.tipoSangre || 'N/A',
       contacto: p.contacto || 'Sin contacto',
-      ultimaConsulta: p.historiasClinicas.length > 0 
-        ? p.historiasClinicas[0].fecha.toLocaleDateString() 
+      ultimaConsulta: p.historiasClinicas.length > 0
+        ? p.historiasClinicas[0].fecha.toLocaleDateString()
         : 'Sin registro',
       estado: p.estadoClinico || 'No Evaluado',
     }));
@@ -86,6 +86,49 @@ export async function getPacientes(params: GetPacientesParams) {
 // Función auxiliar para calcular la edad
 function _calculateAge(birthDate: Date): number {
   const diff = Date.now() - birthDate.getTime();
-  const ageDate = new Date(diff); 
+  const ageDate = new Date(diff);
   return Math.abs(ageDate.getUTCFullYear() - 1970);
+}
+
+export async function getPacienteDetallePDF(id: string) {
+  try {
+    const patient = await prisma.paciente.findUnique({
+      where: { id },
+      include: {
+        historiasClinicas: {
+          orderBy: { fecha: "desc" },
+          include: {
+            medico: {
+              include: { user: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!patient) return null;
+
+    return {
+      ...patient,
+
+      fechaNacimiento: patient.fechaNacimiento?.toISOString(),
+
+      historiasClinicas: patient.historiasClinicas.map((hc) => ({
+        ...hc,
+
+        // Decimal -> number
+        peso: Number(hc.peso),
+        temperatura: Number(hc.temperatura),
+        pulso: Number(hc.pulso),
+
+        // Date -> string
+        fecha: hc.fecha.toISOString(),
+        createdAt: hc.createdAt.toISOString(),
+        updatedAt: hc.updatedAt.toISOString(),
+      })),
+    };
+  } catch (error) {
+    console.error("Error fetching paciente detail for PDF:", error);
+    return null;
+  }
 }

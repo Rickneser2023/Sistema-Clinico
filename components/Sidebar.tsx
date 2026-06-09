@@ -99,7 +99,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <nav className="sidebar-nav">
           {menuItems.map((item) => {
             // Check if active route
-            const isActive = pathname === item.path || (item.path !== '/' && pathname.startsWith(item.path));
+            const isActive = pathname === item.path || (item.path !== '/' && pathname.startsWith(`${item.path}/`));
             return (
               <Link 
                 key={item.name} 
