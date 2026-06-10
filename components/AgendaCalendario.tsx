@@ -65,6 +65,12 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
     const endDate = new Date(targetDate);
     endDate.setMinutes(minutes + 30); // Cita predeterminada de 30 minutos
 
+    if (targetDate < new Date()) {
+      alert("No se pueden agendar citas en horarios pasados.");
+      setErrorMsg("No se pueden agendar citas en horarios pasados.");
+      return;
+    }
+
     // Formatear para input type="datetime-local"
     const toLocalISO = (d: Date) => {
       const pad = (n: number) => n.toString().padStart(2, '0');
@@ -90,6 +96,13 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
     // Normalizar fechas a ISO string local para evitar desfases de husos horarios en el servidor
     const localStart = new Date(formData.get('fechaHoraInicio') as string);
     const localEnd = new Date(formData.get('fechaHoraFin') as string);
+
+    if (localStart < new Date()) {
+       alert("No se pueden agendar citas en horarios pasados.");
+       setErrorMsg("No se pueden agendar citas en horarios pasados.");
+       return;
+    }
+
     formData.set('fechaHoraInicio', localStart.toISOString());
     formData.set('fechaHoraFin', localEnd.toISOString());
 
