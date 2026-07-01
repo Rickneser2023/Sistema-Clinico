@@ -2,14 +2,17 @@ import React from 'react';
 import Link from 'next/link';
 import Card from '@/components/Card';
 import { PatientGrowthChart, SpecialtyDistributionChart } from '@/components/ClinicalCharts';
-import { getDashboardKPIs, getBoxOccupancy } from '@/app/actions/dashboard';
+import { getDashboardKPIs, getBoxOccupancy, getPatientGrowth, getSpecialtyDistribution } from '@/app/actions/dashboard';
 import { prisma } from '@/lib/prisma';
 
 export default async function DashboardPage() {
-  const stats = await getDashboardKPIs();
-  const boxData = await getBoxOccupancy();
+  const [stats, boxData, patientGrowth, specialtyDist] = await Promise.all([
+    getDashboardKPIs(),
+    getBoxOccupancy(),
+    getPatientGrowth(),
+    getSpecialtyDistribution()
+  ]);
 
-  // Traer las citas de hoy
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date();
@@ -17,19 +20,14 @@ export default async function DashboardPage() {
 
   const citas = await prisma.cita.findMany({
     where: {
-      fechaHoraInicio: {
-        gte: startOfDay,
-        lt: endOfDay
-      }
+      fechaHoraInicio: { gte: startOfDay, lt: endOfDay }
     },
     include: {
       paciente: true,
       medico: { include: { user: true } },
       box: true
     },
-    orderBy: {
-      fechaHoraInicio: 'asc'
-    }
+    orderBy: { fechaHoraInicio: 'asc' }
   });
 
   const getStatusBadgeClass = (status: string) => {
@@ -44,7 +42,6 @@ export default async function DashboardPage() {
 
   const formatHora = (date?: Date | string | null) => {
     if (!date) return "--:--";
-
     const d = new Date(date);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -54,7 +51,6 @@ export default async function DashboardPage() {
 
       {/* 1. KPIs Grid */}
       <section className="kpi-grid" aria-label="Indicadores clave de rendimiento">
-        {/* KPI: Total Pacientes */}
         <div className="card kpi-card">
           <div className="kpi-icon-wrapper" style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary-color)' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
@@ -69,7 +65,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* KPI: Citas Totales */}
         <div className="card kpi-card">
           <div className="kpi-icon-wrapper" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent-color)' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" /></svg>
@@ -83,7 +78,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* KPI: Citas de Hoy */}
         <div className="card kpi-card">
           <div className="kpi-icon-wrapper" style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', color: 'var(--color-pendiente)' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
@@ -97,7 +91,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* KPI: Eficiencia */}
         <div className="card kpi-card">
           <div className="kpi-icon-wrapper" style={{ backgroundColor: 'var(--bg-observacion)', color: 'var(--color-observacion)' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
@@ -144,7 +137,7 @@ export default async function DashboardPage() {
           subtitle="Evolución mensual durante el primer semestre del 2026"
         >
           <div style={{ marginTop: '1rem', height: '220px' }}>
-            <PatientGrowthChart />
+            <PatientGrowthChart data={patientGrowth} />
           </div>
         </Card>
 
@@ -153,14 +146,13 @@ export default async function DashboardPage() {
           subtitle="Distribución de la demanda médica actual"
         >
           <div style={{ marginTop: '1rem', height: '220px' }}>
-            <SpecialtyDistributionChart />
+            <SpecialtyDistributionChart data={specialtyDist} />
           </div>
         </Card>
       </section>
 
       {/* 3. Dashboard Details Grid */}
       <section className="dashboard-grid" aria-label="Detalles de agenda y acciones rápidas">
-        {/* Agenda de Citas */}
         <Card
           title="Agenda de Consultas (Hoy)"
           subtitle="Cronograma y estados de atención para el día de hoy"
@@ -179,7 +171,7 @@ export default async function DashboardPage() {
               <tbody>
                 {citas.map((cita) => (
                   <tr key={cita.id}>
-                    <td style={{ fontWeight: 700, color: 'var(--primary-color)' }}>{formatHora(cita.fechaHora)}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--primary-color)' }}>{formatHora(cita.fechaHoraInicio)}</td>
                     <td style={{ fontWeight: 600 }}>{cita.paciente.nombre} {cita.paciente.apellido}</td>
                     <td className="text-muted">{cita.medico ? cita.medico.user.nombre : 'No asignado'}</td>
                     <td>{cita.box ? cita.box.nombre : '-'}</td>
@@ -202,7 +194,6 @@ export default async function DashboardPage() {
           </div>
         </Card>
 
-        {/* Acciones Rápidas */}
         <Card
           title="Acciones y Accesos Rápidos"
           subtitle="Accesos directos a los flujos principales de la clínica"

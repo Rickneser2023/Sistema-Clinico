@@ -1,18 +1,47 @@
 "use client";
 
 import React, { useState } from 'react';
-import { 
-  mockEspecialidadesStats, 
+import {
+  mockEspecialidadesStats,
   mockEvolucionMensual,
   mockRentabilidadEspecialidades,
   mockIngresos6Meses,
-  mockOcupacionConsultorios 
+  mockOcupacionConsultorios
 } from '../lib/mockData';
 
+// Tipos para datos de gráficos
+export interface MonthlyDataPoint {
+  mes: string;
+  pacientes: number;
+}
+
+export interface SpecialtyDataPoint {
+  nombre: string;
+  cantidad: number;
+  color: string;
+}
+
+export interface RevenueDataPoint {
+  mes: string;
+  monto: number;
+}
+
+export interface ProfitabilityDataPoint {
+  especialidad: string;
+  ingresos: number;
+  color: string;
+}
+
+export interface OccupancyDataPoint {
+  nombre: string;
+  porcentaje: number;
+  color: string;
+}
+
 // 1. GRAFICO DE CRECIMIENTO DE PACIENTES (LINE CHART SVG)
-export function PatientGrowthChart() {
-  const data = mockEvolucionMensual;
-  const maxVal = 60;
+export function PatientGrowthChart({ data }: { data?: MonthlyDataPoint[] }) {
+  const chartData = data && data.length > 0 ? data : mockEvolucionMensual;
+  const maxVal = Math.max(...chartData.map(d => d.pacientes), 1);
   const width = 500;
   const height = 180;
   const paddingLeft = 40;
@@ -23,33 +52,29 @@ export function PatientGrowthChart() {
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
 
-  // Calcular coordenadas (x, y) de los puntos
-  const points = data.map((item, index) => {
-    const x = paddingLeft + (index / (data.length - 1)) * chartWidth;
+  const points = chartData.map((item, index) => {
+    const x = paddingLeft + (index / (chartData.length - 1)) * chartWidth;
     const y = height - paddingBottom - (item.pacientes / maxVal) * chartHeight;
     return { x, y, label: item.mes, value: item.pacientes };
   });
 
-  // Generar cadena del path de la línea
   const linePath = points.reduce((path, p, i) => {
     return i === 0 ? `M ${p.x} ${p.y}` : `${path} L ${p.x} ${p.y}`;
   }, "");
 
-  // Generar cadena del path del área bajo la línea
-  const areaPath = points.length > 0 
-    ? `${linePath} L ${points[points.length - 1].x} ${height - paddingBottom} L ${points[0].x} ${height - paddingBottom} Z` 
+  const areaPath = points.length > 0
+    ? `${linePath} L ${points[points.length - 1].x} ${height - paddingBottom} L ${points[0].x} ${height - paddingBottom} Z`
     : "";
 
-  // Estado para el punto seleccionado en hover
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; value: number; label: string } | null>(null);
 
   return (
     <div style={{ width: '100%', height: '100%', minHeight: '200px' }}>
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        <svg 
-          viewBox={`0 0 ${width} ${height}`} 
-          width="100%" 
-          height="100%" 
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width="100%"
+          height="100%"
           style={{ overflow: 'visible' }}
         >
           <defs>
@@ -59,26 +84,24 @@ export function PatientGrowthChart() {
             </linearGradient>
           </defs>
 
-          {/* Líneas de cuadrícula horizontal */}
-          {[0, 20, 40, 60].map((val) => {
+          {[0, Math.round(maxVal * 0.25), Math.round(maxVal * 0.5), Math.round(maxVal * 0.75), maxVal].map((val, i) => {
             const y = height - paddingBottom - (val / maxVal) * chartHeight;
             return (
-              <g key={val}>
-                <line 
-                  x1={paddingLeft} 
-                  y1={y} 
-                  x2={width - paddingRight} 
-                  y2={y} 
-                  className="svg-grid-line"
+              <g key={i}>
+                <line
+                  x1={paddingLeft}
+                  y1={y}
+                  x2={width - paddingRight}
+                  y2={y}
                   stroke="var(--border-color)"
                   strokeWidth="1"
                   strokeDasharray="4 4"
                 />
-                <text 
-                  x={paddingLeft - 10} 
-                  y={y + 4} 
-                  textAnchor="end" 
-                  fill="var(--secondary-light)" 
+                <text
+                  x={paddingLeft - 10}
+                  y={y + 4}
+                  textAnchor="end"
+                  fill="var(--secondary-light)"
                   fontSize="10"
                   fontWeight="500"
                 >
@@ -88,51 +111,42 @@ export function PatientGrowthChart() {
             );
           })}
 
-          {/* Área de Relleno Gradiente */}
           {areaPath && (
-            <path 
-              d={areaPath} 
-              fill="url(#chartGradient)" 
-              className="svg-area-path" 
+            <path
+              d={areaPath}
+              fill="url(#chartGradient)"
             />
           )}
 
-          {/* Línea del Gráfico */}
           {linePath && (
-            <path 
-              d={linePath} 
-              fill="none" 
-              stroke="var(--primary-color)" 
-              strokeWidth="3.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="svg-line-path"
+            <path
+              d={linePath}
+              fill="none"
+              stroke="var(--primary-color)"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
           )}
 
-          {/* Puntos y Etiquetas */}
           {points.map((p, idx) => (
             <g key={idx}>
-              {/* Círculo del punto */}
-              <circle 
-                cx={p.x} 
-                cy={p.y} 
-                r={hoveredPoint && hoveredPoint.label === p.label ? "6" : "4.5"} 
-                fill="white" 
-                stroke="var(--primary-color)" 
-                strokeWidth="3" 
-                className="chart-dot"
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={hoveredPoint && hoveredPoint.label === p.label ? "6" : "4.5"}
+                fill="white"
+                stroke="var(--primary-color)"
+                strokeWidth="3"
                 style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
                 onMouseEnter={() => setHoveredPoint({ x: p.x, y: p.y, value: p.value, label: p.label })}
                 onMouseLeave={() => setHoveredPoint(null)}
               />
-              
-              {/* Etiqueta del Mes en el eje X */}
-              <text 
-                x={p.x} 
-                y={height - 10} 
-                textAnchor="middle" 
-                fill="var(--secondary-light)" 
+              <text
+                x={p.x}
+                y={height - 10}
+                textAnchor="middle"
+                fill="var(--secondary-light)"
                 fontSize="11"
                 fontWeight="600"
               >
@@ -142,9 +156,8 @@ export function PatientGrowthChart() {
           ))}
         </svg>
 
-        {/* Tooltip Dinámico */}
         {hoveredPoint && (
-          <div 
+          <div
             style={{
               position: 'absolute',
               left: `${(hoveredPoint.x / width) * 100}%`,
@@ -178,23 +191,21 @@ export function PatientGrowthChart() {
 }
 
 // 2. DISTRIBUCIÓN POR ESPECIALIDAD (BAR CHART)
-export function SpecialtyDistributionChart() {
-  const stats = mockEspecialidadesStats;
+export function SpecialtyDistributionChart({ data }: { data?: SpecialtyDataPoint[] }) {
+  const stats = data && data.length > 0 ? data : mockEspecialidadesStats;
   const maxVal = Math.max(...stats.map(s => s.cantidad));
 
   return (
     <div className="bar-chart-container" style={{ width: '100%', height: '100%', minHeight: '200px', display: 'flex', flexDirection: 'column' }}>
       <div className="bar-chart" style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px', paddingBottom: '10px' }}>
         {stats.map((item, index) => {
-          // Porcentaje de la barra respecto al máximo valor
-          const heightPercent = `${(item.cantidad / maxVal) * 80 + 10}%`; // Garantizar un mínimo de altura del 10%
-          
+          const heightPercent = `${(item.cantidad / maxVal) * 80 + 10}%`;
           return (
             <div key={index} className="bar-wrapper">
-              <div 
-                className="bar-visual" 
-                style={{ 
-                  height: heightPercent, 
+              <div
+                className="bar-visual"
+                style={{
+                  height: heightPercent,
                   backgroundColor: item.color,
                   width: '100%',
                   borderRadius: '6px 6px 0 0',
@@ -204,12 +215,12 @@ export function SpecialtyDistributionChart() {
                   {item.cantidad} pacientes
                 </div>
               </div>
-              <div 
-                className="bar-label" 
+              <div
+                className="bar-label"
                 title={item.nombre}
-                style={{ 
-                  fontSize: '0.7rem', 
-                  color: 'var(--secondary-light)', 
+                style={{
+                  fontSize: '0.7rem',
+                  color: 'var(--secondary-light)',
                   fontWeight: 600,
                   marginTop: '8px',
                   width: '100%',
@@ -219,14 +230,13 @@ export function SpecialtyDistributionChart() {
                   whiteSpace: 'nowrap'
                 }}
               >
-                {item.nombre.split(' ')[0]} {/* Mostrar solo la primera palabra para evitar solapamiento */}
+                {item.nombre.split(' ')[0]}
               </div>
             </div>
           );
         })}
       </div>
-      
-      {/* Leyenda Detallada */}
+
       <div className="chart-legend" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', marginTop: '12px' }}>
         {stats.map((item, idx) => (
           <div key={idx} className="legend-item" style={{ fontSize: '0.7rem', fontWeight: 500 }}>
@@ -240,15 +250,14 @@ export function SpecialtyDistributionChart() {
   );
 }
 
-// 3. GRAFICO DE DONUT (OCUPACIÓN DE CONSULTORIOS - EIS)
-export function DonutChart() {
-  const data = mockOcupacionConsultorios;
+// 3. GRAFICO DE DONUT (OCUPACIÓN DE CONSULTORIOS)
+export function DonutChart({ data }: { data?: OccupancyDataPoint[] }) {
+  const chartData = data && data.length > 0 ? data : mockOcupacionConsultorios;
   const radius = 40;
   const strokeWidth = 10;
-  const circumference = 2 * Math.PI * radius; // ~251.32
+  const circumference = 2 * Math.PI * radius;
 
-  // Para esta demo simple, calculamos el segmento de ocupado (72%) y disponible (28%)
-  const ocupadoPct = data.find(d => d.nombre === 'Ocupado')?.porcentaje || 72;
+  const ocupadoPct = chartData.find(d => d.nombre === 'Ocupado')?.porcentaje || 0;
   const dashOcupado = (ocupadoPct / 100) * circumference;
   const dashDisponible = circumference - dashOcupado;
 
@@ -258,7 +267,6 @@ export function DonutChart() {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2rem', height: '100%', minHeight: '180px' }}>
       <div style={{ position: 'relative', width: '130px', height: '130px' }}>
         <svg viewBox="0 0 100 100" width="100%" height="100%">
-          {/* Anillo de fondo (Disponible: 28%) */}
           <circle
             cx="50"
             cy="50"
@@ -267,7 +275,6 @@ export function DonutChart() {
             stroke="#e2e8f0"
             strokeWidth={strokeWidth}
           />
-          {/* Anillo activo (Ocupado: 72%) */}
           <circle
             cx="50"
             cy="50"
@@ -276,9 +283,9 @@ export function DonutChart() {
             stroke="var(--primary-color)"
             strokeWidth={strokeWidth}
             strokeDasharray={`${dashOcupado} ${dashDisponible}`}
-            strokeDashoffset={circumference / 4} // Empezar arriba (12 en punto)
+            strokeDashoffset={circumference / 4}
             strokeLinecap="round"
-            style={{ 
+            style={{
               transition: 'stroke-dasharray 0.5s ease',
               cursor: 'pointer'
             }}
@@ -286,7 +293,6 @@ export function DonutChart() {
             onMouseLeave={() => setHoveredSegment(null)}
           />
         </svg>
-        {/* Texto central */}
         <div style={{
           position: 'absolute',
           top: '50%',
@@ -304,26 +310,25 @@ export function DonutChart() {
         </div>
       </div>
 
-      {/* Leyenda */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {data.map((item, idx) => (
-          <div 
-            key={idx} 
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
+        {chartData.map((item, idx) => (
+          <div
+            key={idx}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
               fontSize: '0.8rem',
               fontWeight: 500,
               opacity: hoveredSegment && hoveredSegment !== item.nombre ? 0.4 : 1,
               transition: 'opacity 0.2s ease'
             }}
           >
-            <span style={{ 
-              width: '10px', 
-              height: '10px', 
-              borderRadius: '50%', 
-              backgroundColor: item.nombre === 'Ocupado' ? 'var(--primary-color)' : '#cbd5e1' 
+            <span style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              backgroundColor: item.nombre === 'Ocupado' ? 'var(--primary-color)' : '#cbd5e1'
             }} />
             <span style={{ color: 'var(--secondary-light)' }}>{item.nombre}:</span>
             <span style={{ fontWeight: 700, color: 'var(--secondary-color)' }}>{item.porcentaje}%</span>
@@ -334,10 +339,10 @@ export function DonutChart() {
   );
 }
 
-// 4. GRAFICO DE BARRAS HORIZONTALES (RENTABILIDAD ESPECIALIDADES - EIS)
-export function HorizontalBarChart() {
-  const data = mockRentabilidadEspecialidades;
-  const maxVal = Math.max(...data.map(d => d.ingresos));
+// 4. GRAFICO DE BARRAS HORIZONTALES (RENTABILIDAD ESPECIALIDADES)
+export function HorizontalBarChart({ data }: { data?: ProfitabilityDataPoint[] }) {
+  const chartData = data && data.length > 0 ? data : mockRentabilidadEspecialidades;
+  const maxVal = Math.max(...chartData.map(d => d.ingresos));
 
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
@@ -347,11 +352,11 @@ export function HorizontalBarChart() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
-      {data.map((item, idx) => {
+      {chartData.map((item, idx) => {
         const pctWidth = (item.ingresos / maxVal) * 100;
         return (
-          <div 
-            key={idx} 
+          <div
+            key={idx}
             style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}
             onMouseEnter={() => setHoveredIdx(idx)}
             onMouseLeave={() => setHoveredIdx(null)}
@@ -360,12 +365,11 @@ export function HorizontalBarChart() {
               <span style={{ color: 'var(--secondary-color)' }}>{item.especialidad}</span>
               <span style={{ color: 'var(--primary-color)', fontWeight: 700 }}>{formatCurrency(item.ingresos)}</span>
             </div>
-            
-            {/* Contenedor Barra */}
-            <div style={{ 
-              width: '100%', 
-              height: '16px', 
-              backgroundColor: '#e2e8f0', 
+
+            <div style={{
+              width: '100%',
+              height: '16px',
+              backgroundColor: '#e2e8f0',
               borderRadius: '999px',
               overflow: 'hidden',
               position: 'relative'
@@ -386,13 +390,13 @@ export function HorizontalBarChart() {
   );
 }
 
-// 5. EVOLUCIÓN DE INGRESOS (AREA CHART SVG - EIS)
-export function RevenueExecutiveChart() {
-  const data = mockIngresos6Meses;
-  const maxVal = 8000000;
+// 5. EVOLUCIÓN DE INGRESOS (AREA CHART SVG)
+export function RevenueExecutiveChart({ data }: { data?: RevenueDataPoint[] }) {
+  const chartData = data && data.length > 0 ? data : mockIngresos6Meses;
+  const maxVal = Math.max(...chartData.map(d => d.monto), 1);
   const width = 500;
   const height = 180;
-  const paddingLeft = 60; // Más margen izquierdo para montos financieros
+  const paddingLeft = 60;
   const paddingRight = 20;
   const paddingTop = 20;
   const paddingBottom = 30;
@@ -400,8 +404,8 @@ export function RevenueExecutiveChart() {
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
 
-  const points = data.map((item, index) => {
-    const x = paddingLeft + (index / (data.length - 1)) * chartWidth;
+  const points = chartData.map((item, index) => {
+    const x = paddingLeft + (index / (chartData.length - 1)) * chartWidth;
     const y = height - paddingBottom - (item.monto / maxVal) * chartHeight;
     return { x, y, label: item.mes, value: item.monto };
   });
@@ -410,8 +414,8 @@ export function RevenueExecutiveChart() {
     return i === 0 ? `M ${p.x} ${p.y}` : `${path} L ${p.x} ${p.y}`;
   }, "");
 
-  const areaPath = points.length > 0 
-    ? `${linePath} L ${points[points.length - 1].x} ${height - paddingBottom} L ${points[0].x} ${height - paddingBottom} Z` 
+  const areaPath = points.length > 0
+    ? `${linePath} L ${points[points.length - 1].x} ${height - paddingBottom} L ${points[0].x} ${height - paddingBottom} Z`
     : "";
 
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; value: number; label: string } | null>(null);
@@ -428,10 +432,10 @@ export function RevenueExecutiveChart() {
   return (
     <div style={{ width: '100%', height: '100%', minHeight: '200px' }}>
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        <svg 
-          viewBox={`0 0 ${width} ${height}`} 
-          width="100%" 
-          height="100%" 
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width="100%"
+          height="100%"
           style={{ overflow: 'visible' }}
         >
           <defs>
@@ -441,25 +445,24 @@ export function RevenueExecutiveChart() {
             </linearGradient>
           </defs>
 
-          {/* Grillas Horizontales */}
-          {[0, 2000000, 4000000, 6000000, 8000000].map((val) => {
+          {[0, Math.round(maxVal * 0.25), Math.round(maxVal * 0.5), Math.round(maxVal * 0.75), maxVal].map((val, i) => {
             const y = height - paddingBottom - (val / maxVal) * chartHeight;
             return (
-              <g key={val}>
-                <line 
-                  x1={paddingLeft} 
-                  y1={y} 
-                  x2={width - paddingRight} 
-                  y2={y} 
+              <g key={i}>
+                <line
+                  x1={paddingLeft}
+                  y1={y}
+                  x2={width - paddingRight}
+                  y2={y}
                   stroke="var(--border-color)"
                   strokeWidth="1"
                   strokeDasharray="4 4"
                 />
-                <text 
-                  x={paddingLeft - 10} 
-                  y={y + 4} 
-                  textAnchor="end" 
-                  fill="var(--secondary-light)" 
+                <text
+                  x={paddingLeft - 10}
+                  y={y + 4}
+                  textAnchor="end"
+                  fill="var(--secondary-light)"
                   fontSize="10"
                   fontWeight="600"
                 >
@@ -469,46 +472,42 @@ export function RevenueExecutiveChart() {
             );
           })}
 
-          {/* Relleno gradiente */}
           {areaPath && (
-            <path 
-              d={areaPath} 
-              fill="url(#revenueGradient)" 
+            <path
+              d={areaPath}
+              fill="url(#revenueGradient)"
             />
           )}
 
-          {/* Línea del gráfico */}
           {linePath && (
-            <path 
-              d={linePath} 
-              fill="none" 
-              stroke="#10b981" 
-              strokeWidth="3.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
+            <path
+              d={linePath}
+              fill="none"
+              stroke="#10b981"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
           )}
 
-          {/* Círculos e interacción */}
           {points.map((p, idx) => (
             <g key={idx}>
-              <circle 
-                cx={p.x} 
-                cy={p.y} 
-                r={hoveredPoint && hoveredPoint.label === p.label ? "6" : "4.5"} 
-                fill="white" 
-                stroke="#10b981" 
-                strokeWidth="3" 
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={hoveredPoint && hoveredPoint.label === p.label ? "6" : "4.5"}
+                fill="white"
+                stroke="#10b981"
+                strokeWidth="3"
                 style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
                 onMouseEnter={() => setHoveredPoint({ x: p.x, y: p.y, value: p.value, label: p.label })}
                 onMouseLeave={() => setHoveredPoint(null)}
               />
-              
-              <text 
-                x={p.x} 
-                y={height - 10} 
-                textAnchor="middle" 
-                fill="var(--secondary-light)" 
+              <text
+                x={p.x}
+                y={height - 10}
+                textAnchor="middle"
+                fill="var(--secondary-light)"
                 fontSize="11"
                 fontWeight="600"
               >
@@ -518,9 +517,8 @@ export function RevenueExecutiveChart() {
           ))}
         </svg>
 
-        {/* Tooltip */}
         {hoveredPoint && (
-          <div 
+          <div
             style={{
               position: 'absolute',
               left: `${(hoveredPoint.x / width) * 100}%`,
@@ -542,7 +540,7 @@ export function RevenueExecutiveChart() {
           </div>
         )}
       </div>
-      
+
       <div className="chart-legend" style={{ justifyContent: 'center' }}>
         <div className="legend-item">
           <span className="legend-dot" style={{ backgroundColor: '#10b981' }}></span>
