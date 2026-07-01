@@ -2,6 +2,8 @@ import React, { Suspense } from 'react';
 import { prisma } from '@/lib/prisma';
 import HistoriaForm from './HistoriaForm';
 
+export const dynamic = 'force-dynamic';
+
 // Server Component asincrónico para traer pacientes y doctores
 export default async function NewHistoryPage() {
   // Traer pacientes para poblar el select

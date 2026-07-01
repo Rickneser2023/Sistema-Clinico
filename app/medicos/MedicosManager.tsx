@@ -377,7 +377,7 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
                         <h4 style={{ margin: 0, fontWeight: 700 }}>{box.nombre}</h4>
                         <span style={{ fontSize: '0.75rem', color: 'var(--secondary-light)' }}>{box.tipo} (Capacidad: {box.capacidad})</span>
                       </div>
-                      <span className={`badge ${box.estado === 'DISPONIBLE' ? 'badge-estable' : box.estado === 'MANTENIMIENTO' ? 'badge-observacion' : box.estado === 'MANTENIMIENTO' ? 'badge-observacion' : 'badge-critico'}`}>
+                      <span className={`badge ${box.estado === 'DISPONIBLE' ? 'badge-estable' : box.estado === 'MANTENIMIENTO' ? 'badge-observacion' : 'badge-critico'}`}>
                         {box.estado}
                       </span>
                     </div>

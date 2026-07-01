@@ -14,6 +14,8 @@ export type FormState = {
     genero?: string[];
     tipoSangre?: string[];
     contacto?: string[];
+    alergias?: string[];
+    antecedentes?: string[];
     presionArt?: string[];
     pulso?: string[];
     temperatura?: string[];
@@ -23,6 +25,7 @@ export type FormState = {
     diagnostico?: string[];
     tratamiento?: string[];
     doctorId?: string[];
+    precioFinal?: string[];
     _form?: string[];
   };
   message?: string | null;

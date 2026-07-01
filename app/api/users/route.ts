@@ -13,7 +13,8 @@ export async function POST(request: Request) {
   const user = await prisma.user.create({
     data: {
       email: body.email,
-      name: body.name,
+      nombre: body.nombre || body.email.split('@')[0],
+      passwordHash: body.passwordHash || 'default-hash',
     },
   })
   return NextResponse.json(user)

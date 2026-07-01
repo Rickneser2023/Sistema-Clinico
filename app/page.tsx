@@ -5,6 +5,8 @@ import { PatientGrowthChart, SpecialtyDistributionChart } from '@/components/Cli
 import { getDashboardKPIs, getBoxOccupancy, getPatientGrowth, getSpecialtyDistribution } from '@/app/actions/dashboard';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   const [stats, boxData, patientGrowth, specialtyDist] = await Promise.all([
     getDashboardKPIs(),

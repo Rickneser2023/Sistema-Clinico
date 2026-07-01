@@ -1,15 +1,54 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from './AuthProvider';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading } = useAuth();
 
-  // Obtener título y subtítulo dinámico según la ruta
+  const isLoginPage = pathname === '/login';
+
+  useEffect(() => {
+    if (!loading && !user && !isLoginPage) {
+      router.push('/login');
+    }
+  }, [loading, user, isLoginPage, router]);
+
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-app)',
+      }}>
+        <div style={{
+          width: 36,
+          height: 36,
+          border: '3px solid var(--border-color)',
+          borderTopColor: 'var(--primary-color)',
+          borderRadius: '50%',
+          animation: 'spin 0.6s linear infinite',
+        }} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   let title = "Dashboard General";
   let subtitle = "Resumen de actividad clínica y KPIs";
 

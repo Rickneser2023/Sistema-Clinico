@@ -3,6 +3,8 @@ import { getMedicos, getBoxes } from '@/app/actions/infraestructura';
 import { prisma } from '@/lib/prisma';
 import MedicosManager from './MedicosManager';
 
+export const dynamic = 'force-dynamic';
+
 export default async function MedicosPage() {
   const medicosRes = await getMedicos();
   const boxesRes = await getBoxes();

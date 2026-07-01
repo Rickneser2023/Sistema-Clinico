@@ -75,12 +75,23 @@ model User {
   rol          Role     @default(DOCTOR)
   nombre       String
 
+  activo         Boolean  @default(true)
+
   // Relaciones inversas (1:N)
   medico           Medico? // Un usuario puede ser Médico
   citasGestionadas Cita[]  // Citas creadas por este usuario (como recepcionista o médico)
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model RolePermission {
+  id        String  @id @default(uuid())
+  rol       Role
+  moduleKey String
+  activo    Boolean @default(true)
+
+  @@unique([rol, moduleKey])
 }
 
 // Modelo Medico

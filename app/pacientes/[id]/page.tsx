@@ -5,6 +5,8 @@ import Card from '@/components/Card';
 import { prisma } from '@/lib/prisma';
 import PatientTabsClient from './PatientTabsClient';
 
+export const dynamic = 'force-dynamic';
+
 export default async function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 

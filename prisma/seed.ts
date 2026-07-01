@@ -1,4 +1,5 @@
 import { PrismaClient, Role, Genero, EstadoMedico, EstadoBox, EstadoCita, EstadoPago, MetodoPago } from '@prisma/client'
+import { hashPassword } from '../lib/password'
 
 const prisma = new PrismaClient()
 
@@ -7,7 +8,6 @@ const NOMBRES_FEM = ['María', 'Carmen', 'Ana', 'Patricia', 'Claudia', 'Sofía',
 const APELLIDOS = ['González', 'Muñoz', 'Rojas', 'Díaz', 'Pérez', 'Soto', 'Contreras', 'Silva', 'Martínez', 'Sepúlveda', 'Morales', 'Rodríguez', 'López', 'Fuentes', 'Hernández', 'Torres', 'Araya', 'Ramírez', 'Espinoza', 'Castillo']
 const TIPOS_SANGRE = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-']
 const ALERGIAS_COMUNES = ['Penicilina', 'Sulfas', 'Aspirina', 'Polen', 'Frutos secos', 'Ninguna', 'Ninguna', 'Ninguna']
-const SHARED_PW = '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiX/sM.Hq.kH/T1E21TtzVvX4VfA2u'
 
 function randomBetween(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min
@@ -22,37 +22,40 @@ function randomDate(start: Date, end: Date) {
 }
 
 const AHORA = new Date()
-const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 interface EspecialidadInfo {
   nombre: string
   precioBase: number
   boxNombre: string
-  doctorNombre: string
-  doctorEmail: string
-  numColegiatura: string
   color: string
 }
 
 const ESPECIALIDADES: EspecialidadInfo[] = [
-  { nombre: 'Medicina General', precioBase: 40, boxNombre: 'Box 1 - General', doctorNombre: 'Dr. Ricardo Bascuñán', doctorEmail: 'rbascunan@clinica.com', numColegiatura: 'CMP-10001', color: '#3b82f6' },
-  { nombre: 'Cardiología', precioBase: 80, boxNombre: 'Box 2 - Cardio', doctorNombre: 'Dra. Sofía Mendoza', doctorEmail: 'smendoza@clinica.com', numColegiatura: 'CMP-10002', color: '#ef4444' },
-  { nombre: 'Pediatría', precioBase: 50, boxNombre: 'Box 3 - Pedia', doctorNombre: 'Dra. Carolina Ríos', doctorEmail: 'crios@clinica.com', numColegiatura: 'CMP-10003', color: '#10b981' },
-  { nombre: 'Broncopulmonar', precioBase: 60, boxNombre: 'Box 4 - Bronco', doctorNombre: 'Dr. Carlos Valdivia', doctorEmail: 'cvaldivia@clinica.com', numColegiatura: 'CMP-10004', color: '#06b6d4' },
-  { nombre: 'Traumatología', precioBase: 70, boxNombre: 'Box 5 - Trauma', doctorNombre: 'Dr. Esteban Peralta', doctorEmail: 'eperalta@clinica.com', numColegiatura: 'CMP-10005', color: '#f59e0b' },
-  { nombre: 'Dermatología', precioBase: 55, boxNombre: 'Box 6 - Derma', doctorNombre: 'Dr. Jaime Vergara', doctorEmail: 'jvergara@clinica.com', numColegiatura: 'CMP-10006', color: '#8b5cf6' },
+  { nombre: 'Medicina General', precioBase: 40, boxNombre: 'Box 1 - General', color: '#3b82f6' },
+  { nombre: 'Cardiología', precioBase: 80, boxNombre: 'Box 2 - Cardio', color: '#ef4444' },
+  { nombre: 'Pediatría', precioBase: 50, boxNombre: 'Box 3 - Pedia', color: '#10b981' },
+  { nombre: 'Broncopulmonar', precioBase: 60, boxNombre: 'Box 4 - Bronco', color: '#06b6d4' },
+  { nombre: 'Traumatología', precioBase: 70, boxNombre: 'Box 5 - Trauma', color: '#f59e0b' },
+  { nombre: 'Dermatología', precioBase: 55, boxNombre: 'Box 6 - Derma', color: '#8b5cf6' },
 ]
+
+const ROLE_PERMISSIONS_DEFAULTS: Record<string, string[]> = {
+  ADMIN: ['dashboard', 'ejecutivo', 'atencion', 'agenda', 'facturacion', 'medicos', 'pacientes', 'nueva-historia', 'reportes', 'configuracion'],
+  DOCTOR: ['atencion', 'agenda', 'facturacion', 'pacientes', 'nueva-historia'],
+  RECEPCIONISTA: ['atencion', 'agenda', 'facturacion'],
+}
 
 async function main() {
   console.log('🗑️  Limpiando base de datos...')
   await prisma.factura.deleteMany()
-  await prisma.cita.deleteMany()
   await prisma.historiaClinica.deleteMany()
+  await prisma.cita.deleteMany()
   await prisma.medico.deleteMany()
   await prisma.box.deleteMany()
   await prisma.user.deleteMany()
   await prisma.paciente.deleteMany()
   await prisma.especialidad.deleteMany()
+  await prisma.rolePermission.deleteMany()
 
   // ─── 1. ESPECIALIDADES ───
   console.log('🏥 Creando especialidades...')
@@ -80,44 +83,62 @@ async function main() {
   }
   console.log(`✅ ${ESPECIALIDADES.length} boxes creados.`)
 
-  // ─── 3. USUARIOS + MÉDICOS ───
-  console.log('👤 Creando usuarios y médicos...')
+  // ─── 3. USUARIOS ───
+  console.log('👤 Creando usuarios...')
+
+  const adminPw = await hashPassword('admin123')
+  const recepPw = await hashPassword('recepcion123')
 
   const admin = await prisma.user.create({
     data: {
-      email: 'admin@clinica.com',
-      nombre: 'Administrador Sistema',
-      passwordHash: SHARED_PW,
-      rol: Role.ADMIN
+      email: 'silvestre@clinica.com',
+      nombre: 'Silvestre',
+      passwordHash: adminPw,
+      rol: Role.ADMIN,
+      activo: true,
     }
   })
 
-  const medicoRecords: { id: string; nombre: string; especialidad: string; userId: string }[] = []
-  for (const esp of ESPECIALIDADES) {
-    const user = await prisma.user.create({
-      data: {
-        email: esp.doctorEmail,
-        nombre: esp.doctorNombre,
-        passwordHash: SHARED_PW,
-        rol: Role.DOCTOR
-      }
-    })
-    const medico = await prisma.medico.create({
-      data: {
-        numColegiatura: esp.numColegiatura,
-        especialidadId: espRecords[esp.nombre]!.id,
-        userId: user.id
-      }
-    })
-    medicoRecords.push({ id: medico.id, nombre: esp.doctorNombre, especialidad: esp.nombre, userId: user.id })
-  }
-  console.log(`✅ ${ESPECIALIDADES.length} médicos creados.`)
+  await prisma.user.create({
+    data: {
+      email: 'recepcion@clinica.com',
+      nombre: 'María González',
+      passwordHash: recepPw,
+      rol: Role.RECEPCIONISTA,
+      activo: true,
+    }
+  })
 
-  // ─── 4. PACIENTES ───
+  // Silvestre es el único médico del sistema
+  const medico = await prisma.medico.create({
+    data: {
+      numColegiatura: 'CMP-10001',
+      especialidadId: espRecords['Medicina General']!.id,
+      userId: admin.id,
+    }
+  })
+
+  console.log(`✅ 2 usuarios + 1 médico (Silvestre) creados.`)
+
+  // ─── 4. ROLE PERMISSIONS ───
+  console.log('🔐 Creando permisos por rol...')
+  for (const [rol, modules] of Object.entries(ROLE_PERMISSIONS_DEFAULTS)) {
+    for (const moduleKey of modules) {
+      await prisma.rolePermission.create({
+        data: {
+          rol: rol as Role,
+          moduleKey,
+          activo: true,
+        }
+      })
+    }
+  }
+  console.log(`✅ Permisos creados para ${Object.keys(ROLE_PERMISSIONS_DEFAULTS).length} roles.`)
+
+  // ─── 5. PACIENTES ───
   console.log('👥 Creando pacientes...')
-  // Distribución mensual ascendente para curva de crecimiento realista
   const crecimientoPacientes = [2, 3, 4, 5, 7, 9]
-  //                          [jan, feb, mar, abr, may, jun]
+
   const pacientesCreated: { id: string; nombre: string; apellido: string }[] = []
   let usados = new Set<string>()
 
@@ -126,7 +147,7 @@ async function main() {
     const count = crecimientoPacientes[i]
     const mesDate = new Date(AHORA.getFullYear(), AHORA.getMonth() - mesesAtras, 1)
 
-    for (let i = 0; i < count; i++) {
+    for (let j = 0; j < count; j++) {
       const genero = Math.random() > 0.5 ? Genero.MASCULINO : Genero.FEMENINO
       let nombre: string
       let apellido: string
@@ -154,7 +175,7 @@ async function main() {
   }
   console.log(`✅ ${pacientesCreated.length} pacientes creados.`)
 
-  // ─── 5. CITAS ───
+  // ─── 6. CITAS ───
   console.log('📅 Creando citas y facturas...')
 
   const GENEROS_CITA: EstadoCita[] = ['COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'PROGRAMADA', 'PROGRAMADA', 'PROGRAMADA', 'CANCELADA']
@@ -162,26 +183,23 @@ async function main() {
   let totalCitas = 0
   let totalFacturas = 0
 
-  // Citas históricas (últimos 6 meses) + citas de hoy
   for (let mesesAtras = 6; mesesAtras >= 0; mesesAtras--) {
     const esEsteMes = mesesAtras === 0
     const mesDate = new Date(AHORA.getFullYear(), AHORA.getMonth() - mesesAtras, 1)
     const diasEnMes = new Date(AHORA.getFullYear(), AHORA.getMonth() - mesesAtras + 1, 0).getDate()
 
-    // Más citas en meses recientes
     const citasEsteMes = esEsteMes ? 14 : 6 + (6 - mesesAtras) * 2
 
     for (let i = 0; i < citasEsteMes; i++) {
       const paciente = randomItem(pacientesCreated)
-      const medico = randomItem(medicoRecords)
-      const box = boxRecords[ESPECIALIDADES.find(e => e.nombre === medico.especialidad)!.boxNombre]!
+      const esp = randomItem(ESPECIALIDADES)
+      const box = boxRecords[esp.boxNombre]!
 
       let dia: number
       let horaInicio: number
       let minInicio: number
 
       if (esEsteMes && i < 4) {
-        // Citas para HOY
         dia = AHORA.getDate()
         horaInicio = 9 + i
         minInicio = 0
@@ -218,10 +236,9 @@ async function main() {
 
       totalCitas++
 
-      // Factura para citas COMPLETADA (hasta 3 meses atrás solo para mostrar evolución)
       if (estado === 'COMPLETADA' && mesesAtras >= 0) {
-        const esp = espRecords[medico.especialidad]!
-        const montoBase = esp.precioBase
+        const espData = espRecords[esp.nombre]!
+        const montoBase = espData.precioBase
         const montoAdelanto = Math.random() > 0.7 ? randomBetween(5, 15) : 0
         const montoTotal = montoBase - montoAdelanto
 
