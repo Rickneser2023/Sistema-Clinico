@@ -115,15 +115,15 @@ async function main() {
 
   // ─── 4. PACIENTES ───
   console.log('👥 Creando pacientes...')
-  // Distribución mensual para curva de crecimiento (más en meses recientes)
-  const pacientesPorMes = [0, 0, 2, 3, 4, 5, 7, 9]
-  //                     [ene, feb, mar, abr, may, jun, jul, ago...]
-  // Empezamos desde hace 6 meses
+  // Distribución mensual ascendente para curva de crecimiento realista
+  const crecimientoPacientes = [2, 3, 4, 5, 7, 9]
+  //                          [jan, feb, mar, abr, may, jun]
   const pacientesCreated: { id: string; nombre: string; apellido: string }[] = []
   let usados = new Set<string>()
 
-  for (let mesesAtras = 6; mesesAtras >= 1; mesesAtras--) {
-    const count = pacientesPorMes[mesesAtras] || 2
+  for (let i = 0; i < crecimientoPacientes.length; i++) {
+    const mesesAtras = 6 - i
+    const count = crecimientoPacientes[i]
     const mesDate = new Date(AHORA.getFullYear(), AHORA.getMonth() - mesesAtras, 1)
 
     for (let i = 0; i < count; i++) {
