@@ -104,7 +104,9 @@ export default async function FacturacionPage() {
                     <td>{f.metodoAdelanto}</td>
                     <td style={{ color: '#10b981', fontWeight: 700 }}>{formatPEN(f.montoAdelanto)}</td>
                     <td>
-                      {f.comprobanteUrl ? (
+                      {f.comprobanteUrl === 'DB' ? (
+                        <a href={`/api/comprobante/${f.id}`} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-color)', fontWeight: 700 }}>Ver</a>
+                      ) : f.comprobanteUrl ? (
                         <a href={f.comprobanteUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-color)', fontWeight: 700 }}>Ver</a>
                       ) : (
                         <span className="text-muted">Sin archivo</span>

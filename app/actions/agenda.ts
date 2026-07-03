@@ -3,8 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { CitaSchema } from "@/lib/validations/citas";
 import { revalidatePath } from "next/cache";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
+
 
 export type FormStateAgenda = {
   errors?: {
@@ -146,13 +145,14 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
     const adelantoNum = Number(montoAdelanto) || 0;
     let comprobanteUrl: string | null = null;
 
+    let comprobanteDatos: Uint8Array<ArrayBuffer> | null = null;
+    let comprobanteTipo: string | null = null;
+
     if (comprobanteFile) {
-      const extension = path.extname(comprobanteFile.name).toLowerCase() || ".jpg";
-      const uploadDir = path.join(process.cwd(), "public", "uploads", "comprobantes");
-      const fileName = `${nuevaCita.id}-${Date.now()}${extension}`;
-      await mkdir(uploadDir, { recursive: true });
-      await writeFile(path.join(uploadDir, fileName), Buffer.from(await comprobanteFile.arrayBuffer()));
-      comprobanteUrl = `/uploads/comprobantes/${fileName}`;
+      const buf = await comprobanteFile.arrayBuffer();
+      comprobanteDatos = new Uint8Array(buf) as Uint8Array<ArrayBuffer>;
+      comprobanteTipo = comprobanteFile.type;
+      comprobanteUrl = "DB";
     }
 
     const estadoAdelanto =
@@ -173,6 +173,8 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
         metodoAdelanto: metodoAdelanto || null,
         estadoAdelanto,
         comprobanteUrl,
+        comprobanteDatos,
+        comprobanteTipo,
         observacionPago: observacionPago || null,
         fechaComprobante: comprobanteUrl ? new Date() : null,
         fechaValidacion: estadoAdelanto === "VALIDADO" ? new Date() : null,

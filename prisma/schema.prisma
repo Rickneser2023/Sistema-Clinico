@@ -241,6 +241,8 @@ model Factura {
   metodoAdelanto MetodoPago?
   estadoAdelanto EstadoAdelanto @default(NO_REQUIERE)
   comprobanteUrl String?
+  comprobanteDatos Bytes?
+  comprobanteTipo String?
   observacionPago String?
   fechaComprobante DateTime?
   fechaValidacion DateTime?

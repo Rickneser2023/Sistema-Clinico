@@ -37,6 +37,7 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
   const [selectedCita, setSelectedCita] = useState<Cita | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isNewPatient, setIsNewPatient] = useState(false);
+  const [selectedMetodoAdelanto, setSelectedMetodoAdelanto] = useState('');
 
   // Datos para renderizar el Grid Semanal
   const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -442,7 +443,7 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Método de Adelanto</label>
-                  <select name="metodoAdelanto" className="form-control" defaultValue="">
+                  <select name="metodoAdelanto" className="form-control" defaultValue="" onChange={(e) => setSelectedMetodoAdelanto(e.target.value)}>
                     <option value="">Sin adelanto</option>
                     <option value="EFECTIVO">Efectivo</option>
                     <option value="TRANSFERENCIA">Transferencia</option>
@@ -450,10 +451,12 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
                     <option value="PLIN">Plin</option>
                   </select>
                 </div>
+                {selectedMetodoAdelanto && selectedMetodoAdelanto !== 'EFECTIVO' && (
                 <div>
                   <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Comprobante</label>
-                  <input type="file" name="comprobanteAdelanto" className="form-control" accept="image/png,image/jpeg,image/webp,application/pdf" />
+                  <input type="file" name="comprobanteAdelanto" className="form-control" accept="image/png,image/jpeg,image/webp,application/pdf" required />
                 </div>
+                )}
               </div>
 
               <div>
