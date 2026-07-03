@@ -6,7 +6,7 @@ La aplicación está diseñada para servir como demo visual y funcional robusta 
 
 ---
 
-## 🚀 Requisitos Previos
+## Requisitos Previos
 
 Asegúrate de tener instalados los siguientes componentes en tu sistema:
 - **Docker** y **Docker Compose**
@@ -14,7 +14,7 @@ Asegúrate de tener instalados los siguientes componentes en tu sistema:
 
 ---
 
-## 🛠️ Instrucciones de Inicio Rápido
+## Instrucciones de Inicio Rápido
 
 Para levantar la base de datos PostgreSQL y el servidor de desarrollo de Next.js de manera local mediante Docker:
 
@@ -33,7 +33,7 @@ Para levantar la base de datos PostgreSQL y el servidor de desarrollo de Next.js
 
 3. **Acceder a la aplicación**
    Una vez que el contenedor de Next.js esté activo, abre tu navegador e ingresa a:
-   👉 **[http://localhost:3000](http://localhost:3000)**
+   **[http://localhost:3000](http://localhost:3000)**
 
 4. **Ver la Base de Datos (Prisma Studio)**
    Para visualizar las tablas configuradas en PostgreSQL, puedes ejecutar Prisma Studio localmente (requiere `npm install` local):
@@ -43,7 +43,7 @@ Para levantar la base de datos PostgreSQL y el servidor de desarrollo de Next.js
 
 ---
 
-## 📂 Estructura del Proyecto Entregado
+## Estructura del Proyecto Entregado
 
 La organización de carpetas del proyecto es la siguiente:
 
@@ -105,7 +105,7 @@ Sistema-CLinico/
 
 ---
 
-## 🎨 Características de Diseño (Vanilla CSS)
+## Características de Diseño (Vanilla CSS)
 
 - **Aesthetics Premium**: Uso de una paleta de color curada en base a azules cielo, grises suaves y verdes médicos.
 - **Glassmorphism**: Efectos de desenfoque (`backdrop-filter`) y sombras suaves (`box-shadow`) en el Sidebar y Header.
@@ -115,7 +115,7 @@ Sistema-CLinico/
 
 ---
 
-## 🗄️ Esquema de Base de Datos (`schema.prisma`)
+## Esquema de Base de Datos (`schema.prisma`)
 
 El esquema de la base de datos se encuentra listo para el momento en el que se decida conectar con la lógica real. Contiene los siguientes modelos vinculados:
 - **Paciente**: Almacena datos demográficos, alergias y antecedentes.
