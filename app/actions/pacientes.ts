@@ -83,6 +83,62 @@ export async function getPacientes(params: GetPacientesParams) {
   }
 }
 
+export type SearchResult = {
+  pacientes: { id: string; nombre: string; apellido: string; tipoSangre: string | null; contacto: string | null }[];
+  historias: { id: string; motivo: string; diagnostico: string | null; fecha: Date; pacienteId: string; pacienteNombre: string }[];
+};
+
+export async function searchGlobal(query: string): Promise<SearchResult> {
+  if (!query || query.trim().length < 2) {
+    return { pacientes: [], historias: [] };
+  }
+  try {
+    const q = query.trim();
+    const [pacientes, historias] = await Promise.all([
+      prisma.paciente.findMany({
+        where: {
+          OR: [
+            { nombre: { contains: q, mode: "insensitive" } },
+            { apellido: { contains: q, mode: "insensitive" } },
+            { contacto: { contains: q, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true, nombre: true, apellido: true, tipoSangre: true, contacto: true },
+        take: 5,
+      }),
+      prisma.historiaClinica.findMany({
+        where: {
+          OR: [
+            { motivo: { contains: q, mode: "insensitive" } },
+            { diagnostico: { contains: q, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true,
+          motivo: true,
+          diagnostico: true,
+          fecha: true,
+          pacienteId: true,
+          paciente: { select: { nombre: true, apellido: true } },
+        },
+        take: 5,
+        orderBy: { fecha: "desc" },
+      }),
+    ]);
+
+    return {
+      pacientes,
+      historias: historias.map((h) => ({
+        ...h,
+        pacienteNombre: `${h.paciente.nombre} ${h.paciente.apellido}`,
+      })),
+    };
+  } catch (error) {
+    console.error("Error in searchGlobal:", error);
+    return { pacientes: [], historias: [] };
+  }
+}
+
 // Función auxiliar para calcular la edad
 function _calculateAge(birthDate: Date): number {
   const diff = Date.now() - birthDate.getTime();

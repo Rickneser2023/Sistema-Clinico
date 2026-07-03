@@ -5,7 +5,8 @@ import { useAuth } from './AuthProvider';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { searchGlobal, SearchResult } from '@/app/actions/pacientes';
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -18,9 +19,51 @@ export default function Header({ onMenuToggle, title = "Dashboard", subtitle = "
   const { user, logout } = useAuth();
   const router = useRouter();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult>({ pacientes: [], historias: [] });
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const handleAlert = (action: string) => {
-    alert(`Funcionalidad de "${action}" en desarrollo (Demostrativo).`);
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSearch = useCallback(async (q: string) => {
+    if (q.trim().length < 2) {
+      setSearchResults({ pacientes: [], historias: [] });
+      setShowSearchDropdown(false);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const results = await searchGlobal(q);
+      setSearchResults(results);
+      setShowSearchDropdown(results.pacientes.length > 0 || results.historias.length > 0);
+    } catch {
+      setSearchResults({ pacientes: [], historias: [] });
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  const onSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => handleSearch(value), 300);
+  };
+
+  const navigateToPatient = (id: string) => {
+    setShowSearchDropdown(false);
+    setSearchQuery('');
+    router.push(`/pacientes/${id}`);
   };
 
   const userInitials = user?.nombre
@@ -50,13 +93,67 @@ export default function Header({ onMenuToggle, title = "Dashboard", subtitle = "
       </div>
       
       <div className="header-right">
-        <div className="header-search">
+        <div className="header-search" ref={searchRef} style={{ position: 'relative' }}>
           <svg className="header-search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input 
-            type="text" 
-            placeholder="Buscar paciente o historia..." 
-            onKeyDown={(e) => e.key === 'Enter' && handleAlert('Búsqueda rápida')}
+          <input
+            type="text"
+            placeholder="Buscar paciente o historia..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            onFocus={() => { if (searchResults.pacientes.length > 0 || searchResults.historias.length > 0) setShowSearchDropdown(true); }}
           />
+          {isSearching && (
+            <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)' }}>
+              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--secondary-light)" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            </span>
+          )}
+          {showSearchDropdown && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
+              backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)',
+              borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', marginTop: '4px',
+              maxHeight: '400px', overflowY: 'auto',
+            }}>
+              {searchResults.pacientes.length > 0 && (
+                <div>
+                  <div style={{ padding: '8px 12px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--secondary-light)' }}>Pacientes</div>
+                  {searchResults.pacientes.map(p => (
+                    <div key={p.id} onClick={() => navigateToPatient(p.id)} style={{
+                      padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                      transition: 'background 0.15s', fontSize: '0.85rem',
+                    }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-app)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      <div style={{ fontWeight: 500, color: 'var(--secondary-color)' }}>{p.nombre} {p.apellido}</div>
+                      {p.tipoSangre && <span style={{ fontSize: '0.7rem', color: 'var(--secondary-light)' }}>{p.tipoSangre}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {searchResults.historias.length > 0 && (
+                <div>
+                  <div style={{ padding: '8px 12px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--secondary-light)', borderTop: '1px solid var(--border-color)' }}>Historias Clinicas</div>
+                  {searchResults.historias.map(h => (
+                    <div key={h.id} onClick={() => navigateToPatient(h.pacienteId)} style={{
+                      padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                      transition: 'background 0.15s', fontSize: '0.85rem',
+                    }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-app)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500, color: 'var(--secondary-color)', fontSize: '0.85rem' }}>{h.motivo}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--secondary-light)' }}>{h.pacienteNombre} · {new Date(h.fecha).toLocaleDateString()}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="header-actions">
