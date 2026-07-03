@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useActionState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Card from '@/components/Card';
+import { useAuth } from '@/components/AuthProvider';
 import { createHistoriaClinica, FormState } from '@/app/actions/historia';
 
 interface Paciente {
@@ -32,6 +33,7 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
   const router = useRouter();
   const searchParams = useSearchParams();
   const patientIdParam = searchParams.get('patientId');
+  const { user } = useAuth();
 
   const [state, formAction, isPending] = useActionState(createHistoriaClinica, {
     errors: {},
@@ -109,8 +111,9 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
         </div>
       )}
 
-      {/* Hidden Cita ID for auto-completing the appointment status */}
+      {/* Hidden fields for citaId and authenticated user */}
       <input type="hidden" name="citaId" value={searchParams.get('citaId') || ''} />
+      {user?.id && <input type="hidden" name="usuarioId" value={user.id} />}
 
       {/* SECCIÓN 1: Selección o Datos Demográficos */}
       <Card title="Ficha del Paciente" subtitle="Selecciona un paciente existente o registra los datos de uno nuevo">

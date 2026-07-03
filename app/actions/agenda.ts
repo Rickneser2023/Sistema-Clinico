@@ -1,27 +1,10 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { CitaSchema } from "@/lib/validations/citas";
+import { CitaSchema, FormStateAgenda } from "@/lib/validations/citas";
 import { revalidatePath } from "next/cache";
 
-
-export type FormStateAgenda = {
-  errors?: {
-    pacienteId?: string[];
-    medicoId?: string[];
-    boxId?: string[];
-    motivo?: string[];
-    fechaHoraInicio?: string[];
-    fechaHoraFin?: string[];
-    montoAdelanto?: string[];
-    metodoAdelanto?: string[];
-    observacionPago?: string[];
-    _form?: string[];
-  };
-  message?: string | null;
-  success?: boolean;
-};
-
+// Crear Cita
 export async function createCita(prevState: FormStateAgenda, formData: FormData): Promise<FormStateAgenda> {
   const rawData = {
     pacienteId: formData.get("pacienteId"),
@@ -101,10 +84,14 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
       };
     }
 
-    // Identificar el usuario creador (simulado hasta tener módulo Auth completo)
-    const adminUser = await prisma.user.findFirst();
-    if (!adminUser) {
-      throw new Error("Sistema sin usuarios administrativos.");
+    // Identificar el usuario creador: leer desde FormData si se envió, o fallback
+    let usuarioId = formData.get("usuarioId") as string | null;
+    if (!usuarioId) {
+      const adminUser = await prisma.user.findFirst();
+      if (!adminUser) {
+        throw new Error("Sistema sin usuarios administrativos.");
+      }
+      usuarioId = adminUser.id;
     }
 
     let finalPacienteId = pacienteId;
@@ -131,7 +118,7 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
         motivo,
         fechaHoraInicio: start,
         fechaHoraFin: end,
-        usuarioId: adminUser.id,
+        usuarioId,
       }
     });
 
@@ -168,7 +155,7 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
       data: {
         montoBase: precioBase,
         montoAdelanto: adelantoNum,
-        montoTotal: precioBase, // Initially total is just the base price, wait, or wait until historia? No, total is base price for now.
+        montoTotal: precioBase,
         estadoPago: 'PENDIENTE',
         metodoAdelanto: metodoAdelanto || null,
         estadoAdelanto,
@@ -178,7 +165,7 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
         observacionPago: observacionPago || null,
         fechaComprobante: comprobanteUrl ? new Date() : null,
         fechaValidacion: estadoAdelanto === "VALIDADO" ? new Date() : null,
-        validadoPorId: estadoAdelanto === "VALIDADO" ? adminUser.id : null,
+        validadoPorId: estadoAdelanto === "VALIDADO" ? usuarioId : null,
         citaId: nuevaCita.id,
         pacienteId: finalPacienteId,
         categoria: 'Consulta',
@@ -188,52 +175,23 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
   } catch (error) {
     console.error("Error creating cita:", error);
     return {
-      message: "Ocurrió un error en el servidor al guardar la cita.",
-      errors: { _form: ["Problema interno. Inténtalo más tarde."] },
+      message: "Ocurrió un error en el servidor al agendar la cita.",
+      errors: { _form: ["Error al guardar en la base de datos."] },
       success: false
     };
   }
 
   revalidatePath("/agenda");
-  revalidatePath("/facturacion");
-  return { success: true, message: "Cita programada con éxito." };
+  return { message: "Cita agendada exitosamente.", success: true };
 }
 
-export async function getAgenda(startDate: Date, endDate: Date, filterMedicoId?: string, filterBoxId?: string) {
-  try {
-    const queryWhere: any = {
-      fechaHoraInicio: {
-        gte: startDate,
-        lte: endDate
-      }
-    };
-
-    if (filterMedicoId) queryWhere.medicoId = filterMedicoId;
-    if (filterBoxId) queryWhere.boxId = filterBoxId;
-
-    const citas = await prisma.cita.findMany({
-      where: queryWhere,
-      include: {
-        paciente: { select: { id: true, nombre: true, apellido: true } },
-        medico: { select: { id: true, user: { select: { nombre: true } } } },
-        box: { select: { id: true, nombre: true } },
-        factura: { select: { montoTotal: true, montoAdelanto: true, estadoPago: true, estadoAdelanto: true } }
-      },
-      orderBy: { fechaHoraInicio: 'asc' }
-    });
-
-    return { data: citas, error: null };
-  } catch (error) {
-    console.error("Error fetching agenda:", error);
-    return { data: [], error: "Error al cargar la agenda." };
-  }
-}
-export async function updateEstadoCita(citaId: string, nuevoEstado: any) {
+export async function updateEstadoCita(citaId: string, nuevoEstado: string) {
+  const estadoValido = nuevoEstado as "PROGRAMADA" | "EN_CURSO" | "COMPLETADA" | "CANCELADA" | "PENDIENTE_PAGO";
   try {
     if (nuevoEstado === "COMPLETADA") {
       const factura = await prisma.factura.findUnique({
         where: { citaId },
-        select: { montoTotal: true, montoAdelanto: true, estadoPago: true, estadoAdelanto: true }
+        select: { montoTotal: true, montoAdelanto: true, estadoPago: true, estadoAdelanto: true },
       });
 
       if (factura && factura.estadoPago !== "PAGADO") {
@@ -242,7 +200,7 @@ export async function updateEstadoCita(citaId: string, nuevoEstado: any) {
         if (saldo > 0) {
           await prisma.cita.update({
             where: { id: citaId },
-            data: { estado: "PENDIENTE_PAGO" }
+            data: { estado: "PENDIENTE_PAGO" },
           });
           revalidatePath("/agenda");
           revalidatePath("/atencion");
@@ -254,14 +212,54 @@ export async function updateEstadoCita(citaId: string, nuevoEstado: any) {
 
     await prisma.cita.update({
       where: { id: citaId },
-      data: { estado: nuevoEstado }
+      data: { estado: estadoValido },
     });
     revalidatePath("/agenda");
     revalidatePath("/atencion");
     revalidatePath("/facturacion");
-    return { success: true, message: `Cita actualizada a ${nuevoEstado}.` };
+    return { success: true };
   } catch (error) {
     console.error("Error updating cita:", error);
-    return { success: false, message: "Error al actualizar el estado de la cita." };
+    return { success: false, message: "Error actualizando el estado de la cita." };
+  }
+}
+
+export async function getCitas(filters?: {
+  fecha?: string;
+  medicoId?: string;
+  estado?: string;
+  pacienteId?: string;
+  boxId?: string;
+}) {
+  try {
+    const queryWhere: any = {};
+
+    if (filters?.fecha) {
+      const date = new Date(filters.fecha);
+      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+      queryWhere.fechaHoraInicio = { gte: startOfDay, lt: endOfDay };
+    }
+
+    if (filters?.medicoId) queryWhere.medicoId = filters.medicoId;
+    if (filters?.estado) queryWhere.estado = filters.estado;
+    if (filters?.pacienteId) queryWhere.pacienteId = filters.pacienteId;
+    if (filters?.boxId) queryWhere.boxId = filters.boxId;
+
+    const citas = await prisma.cita.findMany({
+      where: queryWhere,
+      include: {
+        paciente: { select: { id: true, nombre: true, apellido: true } },
+        medico: { select: { id: true, user: { select: { nombre: true } } } },
+        box: { select: { id: true, nombre: true } },
+        factura: { select: { id: true, montoAdelanto: true, estadoAdelanto: true } },
+      },
+      orderBy: { fechaHoraInicio: 'asc' }
+    });
+
+    return { data: citas };
+  } catch (error) {
+    console.error("Error fetching citas:", error);
+    return { data: [] };
   }
 }

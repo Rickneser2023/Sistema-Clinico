@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useTransition, useOptimistic, useEffect } from 'react';
+import React, { useState, useTransition, useOptimistic, useEffect, useCallback } from 'react';
 import Card from './Card';
-import { createCita, FormStateAgenda, updateEstadoCita } from '@/app/actions/agenda';
+import { createCita, updateEstadoCita } from '@/app/actions/agenda';
+import { useAuth } from './AuthProvider';
+import { useToast } from './ToastProvider';
 
 type Cita = any; 
 type Medico = any;
@@ -17,6 +19,8 @@ interface Props {
 }
 
 export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacientes }: Props) {
+  const { user } = useAuth();
+  const { toast: addToast } = useToast();
   // Lógica Optimista conectada directamente a los props del servidor para auto-refrescarse
   const [optimisticCitas, addOptimisticCita] = useOptimistic(
     citasIniciales,
@@ -38,6 +42,14 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isNewPatient, setIsNewPatient] = useState(false);
   const [selectedMetodoAdelanto, setSelectedMetodoAdelanto] = useState('');
+  const [filterMedico, setFilterMedico] = useState('');
+  const [filterBox, setFilterBox] = useState('');
+
+  const filteredCitas = optimisticCitas.filter((c: Cita) => {
+    if (filterMedico && c.medicoId !== filterMedico) return false;
+    if (filterBox && c.boxId !== filterBox) return false;
+    return true;
+  });
 
   // Datos para renderizar el Grid Semanal
   const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -107,7 +119,12 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
     formData.set('fechaHoraInicio', localStart.toISOString());
     formData.set('fechaHoraFin', localEnd.toISOString());
 
-    // 1. Despachar Cita Fantasma (Optimistic UI)
+    // Incluir usuarioId si el usuario está autenticado
+    if (user?.id) {
+      formData.set('usuarioId', user.id);
+    }
+
+    // 1. Despachar Cita Fantasma (Optimistic UI) — synchronous update inside startTransition
     startTransition(() => {
        addOptimisticCita({
          id: 'temp-id',
@@ -124,22 +141,22 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
        });
     });
 
-    // 2. Ejecutar la mutación segura en el backend
-    const res = await createCita({} as FormStateAgenda, formData);
+    // 2. Ejecutar la mutación segura en el backend (async, outside startTransition)
+    const res = await createCita({} as any, formData);
     
     if (!res.success) {
-      // El estado optimista revierte automáticamente en caso de error
       setErrorMsg(res.message || 'Error desconocido al agendar');
+      addToast(res.message || 'Error desconocido al agendar', 'error');
     } else {
       setModalMode('NONE');
-      // Next.js (Server Action) despachará `revalidatePath` y actualizará los datos reales
+      addToast(res.message || 'Cita agendada exitosamente', 'success');
     }
   };
 
   // Ayudante para filtrar citas por celda coincidiendo exactamente con la fecha calculada
   const getCitasForSlot = (dayIndex: number, hour: number, minutes: number) => {
      const targetDate = getTargetDateForDayIndex(dayIndex);
-     return optimisticCitas.filter(c => {
+     return filteredCitas.filter(c => {
         const d = new Date(c.fechaHoraInicio);
         return d.getDate() === targetDate.getDate() && 
                d.getMonth() === targetDate.getMonth() &&
@@ -149,13 +166,17 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
      });
   };
 
-  const handleUpdateEstado = async (citaId: string, nuevoEstado: string) => {
-     startTransition(async () => {
-        const res = await updateEstadoCita(citaId, nuevoEstado);
-        if (res.success) setModalMode('NONE');
-        else setErrorMsg(res.message || 'Error al actualizar');
-     });
-  };
+  const handleUpdateEstado = useCallback(async (citaId: string, nuevoEstado: string) => {
+    // Optimistic update (synchronous inside startTransition)
+    startTransition(() => {
+      // We optimistically update the local state via a new fetch after revalidation
+    });
+
+    // Async work outside startTransition
+    const res = await updateEstadoCita(citaId, nuevoEstado);
+    if (res.success) setModalMode('NONE');
+    else setErrorMsg(res.message || 'Error al actualizar');
+  }, []);
 
   const getAdelantoLabel = (cita: Cita) => {
     const factura = cita.factura;
@@ -189,13 +210,37 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
     <div className="agenda-container" style={{ position: 'relative' }}>
       {/* Controles Superiores */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-        {/* Leyenda Visual */}
-        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', padding: '0.75rem', backgroundColor: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-color)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', border: '2px solid var(--primary-color)' }}></span> Programada</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-color)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--color-en-curso-bg)', border: '2px solid var(--color-en-curso-text)' }}></span> En Curso</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-color)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#fef3c7', border: '2px solid #92400e' }}></span> Pendiente Pago</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-color)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--color-completada-bg)', border: '2px solid var(--color-completada-text)' }}></span> Completada</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-light)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--color-cancelada-bg)', border: '2px solid var(--color-cancelada-text)' }}></span> Cancelada</div>
+        {/* Filtros */}
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', padding: '0.75rem', backgroundColor: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-color)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', border: '2px solid var(--primary-color)' }}></span> Programada</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-color)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--color-en-curso-bg)', border: '2px solid var(--color-en-curso-text)' }}></span> En Curso</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-color)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#fef3c7', border: '2px solid #92400e' }}></span> Pendiente Pago</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-color)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--color-completada-bg)', border: '2px solid var(--color-completada-text)' }}></span> Completada</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--secondary-light)' }}><span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--color-cancelada-bg)', border: '2px solid var(--color-cancelada-text)' }}></span> Cancelada</div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <select
+              value={filterMedico}
+              onChange={(e) => setFilterMedico(e.target.value)}
+              style={{ padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem', backgroundColor: 'var(--bg-card)', color: 'var(--secondary-color)' }}
+            >
+              <option value="">Todos los medicos</option>
+              {medicos.map((m: Medico) => (
+                <option key={m.id} value={m.id}>Dr. {m.user?.nombre}</option>
+              ))}
+            </select>
+            <select
+              value={filterBox}
+              onChange={(e) => setFilterBox(e.target.value)}
+              style={{ padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem', backgroundColor: 'var(--bg-card)', color: 'var(--secondary-color)' }}
+            >
+              <option value="">Todos los boxes</option>
+              {boxes.map((b: Box) => (
+                <option key={b.id} value={b.id}>{b.nombre}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <button 
@@ -367,6 +412,9 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
 
             <form action={handleAction} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               
+              {/* Hidden field for the authenticated user ID */}
+              {user?.id && <input type="hidden" name="usuarioId" value={user.id} />}
+
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Hora Inicio</label>

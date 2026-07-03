@@ -4,20 +4,21 @@ import KanbanAtencion from './KanbanAtencion';
 
 export const dynamic = 'force-dynamic';
 
+// Configuración de zona horaria de la clínica (ajustar según necesidad)
+// Opciones comunes: 'America/Lima' (UTC-5), 'America/Santiago' (UTC-4/UTC-3), 'America/Mexico_City' (UTC-6)
+const CLINIC_TIMEZONE = 'America/Lima';
+
 export default async function AtencionPage() {
-  // Configurar las fechas para HOY en el huso horario local de la clínica (UTC-5)
-  const UTC_OFFSET_MS = -5 * 60 * 60 * 1000;
-  const localDate = new Date(Date.now() + UTC_OFFSET_MS);
+  // Obtener el inicio y fin del día en la zona horaria configurada
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: CLINIC_TIMEZONE,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  });
+  const todayStr = formatter.format(now); // "YYYY-MM-DD" en la zona horaria de la clínica
 
-  const startOfDayLocal = new Date(Date.UTC(
-    localDate.getUTCFullYear(),
-    localDate.getUTCMonth(),
-    localDate.getUTCDate(),
-    0, 0, 0, 0
-  ));
-
-  const startOfDay = new Date(startOfDayLocal.getTime() - UTC_OFFSET_MS);
-  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000 - 1);
+  const startOfDay = new Date(`${todayStr}T00:00:00`);
+  const endOfDay = new Date(`${todayStr}T23:59:59.999`);
 
   // Consultar las citas del día actual
   const citas = await prisma.cita.findMany({

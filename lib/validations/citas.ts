@@ -31,3 +31,9 @@ export const CitaSchema = z.object({
     });
   }
 });
+
+export type FormStateAgenda = {
+  message?: string;
+  errors?: { _form?: string[]; [key: string]: string[] | undefined };
+  success?: boolean;
+};

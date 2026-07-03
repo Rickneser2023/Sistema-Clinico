@@ -86,6 +86,9 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
        }
     }
 
+    // Obtener usuarioId desde FormData (enviado desde el cliente autenticado)
+    const usuarioId = formData.get("usuarioId") as string | null;
+
     // Utilizar una transacción para asegurar integridad referencial
     await prisma.$transaction(async (tx) => {
       let finalPacienteId = data.pacienteId;
@@ -97,7 +100,7 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
             nombre: data.nombre!,
             apellido: data.apellido!,
             fechaNacimiento: new Date(data.fechaNacimiento!),
-            genero: data.genero as any, // Mapeado desde el enum
+            genero: data.genero as any,
             tipoSangre: data.tipoSangre || null,
             contacto: data.contacto || null,
             alergias: data.alergias || null,
@@ -106,7 +109,6 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
         });
         finalPacienteId = newPaciente.id;
       } else {
-        // Si el paciente ya existe, actualizamos su información de contacto si ha cambiado.
         const existingPaciente = await tx.paciente.findUnique({
           where: { id: finalPacienteId },
           select: { contacto: true }
@@ -130,7 +132,7 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
       await tx.historiaClinica.create({
         data: {
           pacienteId: finalPacienteId,
-          medicoId: activeMedico.id, // ID del Médico verificado
+          medicoId: activeMedico.id,
           motivo: data.motivo,
           sintomas: data.sintomas,
           diagnostico: data.diagnostico,
@@ -144,8 +146,6 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
 
       // 3. Actualizar la factura y cerrar la cita solo si no queda saldo pendiente.
       if (data.citaId) {
-        // FACTURACIÓN: Actualizar la factura existente creada en Agenda
-        // Se permite modificar el precio base de la especialidad usando 'precioFinal'
         const precioFinalNumber = data.precioFinal;
 
         let facturaActualizada = await tx.factura.findUnique({
@@ -158,7 +158,7 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
               where: { citaId: data.citaId },
               data: {
                 montoBase: precioFinalNumber,
-                montoTotal: precioFinalNumber, // Set total as new modified base
+                montoTotal: precioFinalNumber,
               }
             });
           }
@@ -187,7 +187,6 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
         }
       } else {
         // FLUJO PACIENTE "DE FRENTE": No hay cita previa
-        // 1. Encontrar un Box disponible para la especialidad del médico
         const medicoDetalle = await tx.medico.findUnique({
           where: { id: activeMedico.id },
           include: { especialidad: true }
@@ -201,14 +200,18 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
         if (boxEspecialidad) {
           boxId = boxEspecialidad.id;
         } else {
-          // Fallback a cualquier box si no hay uno específico
           const anyBox = await tx.box.findFirst();
           if (anyBox) boxId = anyBox.id;
           else throw new Error("No hay consultorios (boxes) en el sistema para asignar esta atención.");
         }
 
-        const adminUser = await tx.user.findFirst();
-        if (!adminUser) throw new Error("Sistema sin usuarios administrativos.");
+        // Resolver el usuario creador: usar id enviado desde el cliente o buscar primer usuario
+        let resolvedUsuarioId = usuarioId;
+        if (!resolvedUsuarioId) {
+          const adminUser = await tx.user.findFirst();
+          if (!adminUser) throw new Error("Sistema sin usuarios administrativos.");
+          resolvedUsuarioId = adminUser.id;
+        }
 
         const now = new Date();
 
@@ -221,7 +224,7 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
             motivo: data.motivo,
             fechaHoraInicio: now,
             fechaHoraFin: now,
-            usuarioId: adminUser.id,
+            usuarioId: resolvedUsuarioId,
             estado: 'PENDIENTE_PAGO'
           }
         });
@@ -257,7 +260,6 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
   }
 
   // Redirigir en caso de éxito
-  // Si la historia vino de una cita, volvemos a la Sala de Espera para seguir el flujo
   if (data.citaId) {
     revalidatePath("/atencion");
     revalidatePath("/agenda");

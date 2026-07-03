@@ -10,7 +10,6 @@ export async function updatePrecioEspecialidad(id: string, nuevoPrecio: number) 
       where: { id },
       data: { precioBase: nuevoPrecio },
     });
-    // Se asume que habrá una ruta /caja o /catalogo
     revalidatePath("/caja");
     return { success: true };
   } catch (error) {
@@ -48,19 +47,29 @@ export async function registrarPagoFactura(facturaId: string, metodoPago: Metodo
     return { success: true };
   } catch (error) {
     console.error("Error al registrar pago:", error);
-    return { success: false, error: "Error al registrar pago de factura" };
+    return { success: false, message: "Error al registrar pago de factura" };
   }
 }
 
-export async function validarAdelanto(facturaId: string) {
+/** Wrapper que extrae metodo del FormData y llama a registrarPagoFactura */
+export async function registrarPagoFacturaForm(formData: FormData) {
+  const facturaId = formData.get("facturaId") as string;
+  const metodoPago = formData.get("metodo") as MetodoPagoInput;
+  if (!facturaId || !metodoPago) {
+    return { success: false, message: "Faltan datos para registrar el pago" };
+  }
+  return registrarPagoFactura(facturaId, metodoPago);
+}
+
+export async function validarAdelanto(facturaId: string, userId?: string) {
   try {
-    const user = await prisma.user.findFirst();
+    const validadoPorId = userId || (await prisma.user.findFirst())?.id || null;
     await prisma.factura.update({
       where: { id: facturaId },
       data: {
         estadoAdelanto: "VALIDADO",
         fechaValidacion: new Date(),
-        validadoPorId: user?.id || null,
+        validadoPorId,
       },
     });
     revalidatePath("/facturacion");
@@ -69,7 +78,7 @@ export async function validarAdelanto(facturaId: string) {
     return { success: true };
   } catch (error) {
     console.error("Error al validar adelanto:", error);
-    return { success: false, error: "Error al validar adelanto" };
+    return { success: false, message: "Error al validar adelanto" };
   }
 }
 
@@ -88,7 +97,7 @@ export async function rechazarAdelanto(facturaId: string, observacion?: string) 
     return { success: true };
   } catch (error) {
     console.error("Error al rechazar adelanto:", error);
-    return { success: false, error: "Error al rechazar adelanto" };
+    return { success: false, message: "Error al rechazar adelanto" };
   }
 }
 
@@ -100,7 +109,7 @@ export async function cobrarSaldoFactura(facturaId: string, metodoPago: MetodoPa
     });
 
     if (!factura) {
-      return { success: false, error: "Factura no encontrada" };
+      return { success: false, message: "Factura no encontrada" };
     }
 
     await prisma.$transaction(async (tx) => {
@@ -124,8 +133,18 @@ export async function cobrarSaldoFactura(facturaId: string, metodoPago: MetodoPa
     return { success: true };
   } catch (error) {
     console.error("Error al cobrar saldo:", error);
-    return { success: false, error: "Error al cobrar saldo" };
+    return { success: false, message: "Error al cobrar saldo" };
   }
+}
+
+/** Wrapper que extrae metodo del FormData y llama a cobrarSaldoFactura */
+export async function cobrarSaldoFacturaForm(formData: FormData) {
+  const facturaId = formData.get("facturaId") as string;
+  const metodoPago = formData.get("metodo") as MetodoPagoInput;
+  if (!facturaId || !metodoPago) {
+    return { success: false, message: "Faltan datos para cobrar el saldo" };
+  }
+  return cobrarSaldoFactura(facturaId, metodoPago);
 }
 
 // Obtener todas las facturas del día y estadísticas
@@ -165,7 +184,6 @@ export async function getFacturacionDashboardData() {
       const adelantoValidado = f.estadoAdelanto === 'VALIDADO' ? montoAdelanto : 0;
       const saldoPendiente = f.estadoPago === 'PAGADO' ? 0 : Math.max(montoTotal - adelantoValidado, 0);
       
-      // Calculate earnings and receivables based on payment state and advance payments
       if (f.estadoPago === 'PAGADO') {
         ingresosHoy += montoTotal;
         facturasPagadas++;
@@ -174,7 +192,6 @@ export async function getFacturacionDashboardData() {
         cuentasPorCobrar += saldoPendiente;
       }
 
-      // Desglose
       if (f.categoria === 'Consulta') desglose.consultas += (f.estadoPago === 'PAGADO' ? montoTotal : adelantoValidado);
       else if (f.categoria === 'Procedimiento') desglose.procedimientos += (f.estadoPago === 'PAGADO' ? montoTotal : adelantoValidado);
       else desglose.laboratorio += (f.estadoPago === 'PAGADO' ? montoTotal : adelantoValidado);

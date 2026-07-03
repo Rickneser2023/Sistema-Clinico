@@ -106,10 +106,10 @@ export async function getExecutiveKPIs() {
     });
 
     return {
-      ingresoMensual: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Number(ingresoMensual._sum.montoTotal) || 0),
+      ingresoMensual: new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 2 }).format(Number(ingresoMensual._sum.montoTotal) || 0),
       pacientesUnicos,
       cancelacionesRate: `${cancelacionesRate}%`,
-      retencionRate: pacientesConCitas > 0 ? `${((pacientesUnicos / pacientesConCitas) * 100).toFixed(1)}%` : '0.0%'
+      retencionRate: pacientesUnicos > 0 ? `${((pacientesConCitas / pacientesUnicos) * 100).toFixed(1)}%` : '0.0%'
     };
   } catch (error) {
     console.error("Error fetching executive KPIs:", error);

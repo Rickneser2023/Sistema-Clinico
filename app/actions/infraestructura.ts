@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { hashPassword } from "@/lib/password";
 import { revalidatePath } from "next/cache";
 
 export async function getMedicos() {
@@ -43,13 +44,17 @@ export async function createMedico(formData: FormData) {
       return { error: "El correo electrónico ya está en uso" };
     }
 
-    // 2. Crear User y Medico
+    // 2. Generar contraseña temporal hasheada
+    const tempPassword = Math.random().toString(36).slice(-10) + "Aa1!";
+    const passwordHash = await hashPassword(tempPassword);
+
+    // 3. Crear User y Medico
     await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
           nombre,
           email,
-          passwordHash: "dummy-password", // En producción usar bcrypt
+          passwordHash,
           rol: "DOCTOR"
         }
       });
@@ -64,7 +69,7 @@ export async function createMedico(formData: FormData) {
     });
 
     revalidatePath("/medicos");
-    return { success: true };
+    return { success: true, tempPassword };
   } catch (error) {
     console.error("Error creating medico:", error);
     return { error: "Error en el servidor al registrar el médico" };
@@ -226,4 +231,3 @@ export async function deleteEspecialidad(especialidadId: string) {
     return { error: "No se puede eliminar la especialidad si tiene médicos o boxes vinculados a ella." };
   }
 }
-

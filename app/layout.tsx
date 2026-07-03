@@ -2,6 +2,8 @@ import './globals.css'
 import DashboardLayout from '@/components/DashboardLayout'
 import ThemeProvider from '@/components/ThemeProvider'
 import AuthProvider from '@/components/AuthProvider'
+import ToastProvider from '@/components/ToastProvider'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 export const metadata = {
   title: 'MediHist - Sistema de Gestión Clínica',
@@ -17,11 +19,15 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <AuthProvider>
-            <DashboardLayout>
-              {children}
-            </DashboardLayout>
-          </AuthProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <ErrorBoundary>
+                <DashboardLayout>
+                  {children}
+                </DashboardLayout>
+              </ErrorBoundary>
+            </AuthProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

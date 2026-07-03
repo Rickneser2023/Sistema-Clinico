@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useTransition, useOptimistic } from 'react';
+import React, { useTransition, useOptimistic, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateEstadoCita } from '@/app/actions/agenda';
+import { useToast } from '@/components/ToastProvider';
 
 type CitaKanban = {
   id: string;
@@ -65,6 +66,7 @@ const COLUMNAS = [
 
 export default function KanbanAtencion({ citasIniciales }: Props) {
   const router = useRouter();
+  const { toast: addToast } = useToast();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => {
     setMounted(true);
@@ -83,39 +85,55 @@ export default function KanbanAtencion({ citasIniciales }: Props) {
 
   const [isPending, startTransition] = useTransition();
 
-  const avanzar = (cita: CitaKanban) => {
+  const avanzar = useCallback((cita: CitaKanban) => {
     let nuevoEstado = '';
     if (cita.estado === 'PROGRAMADA') nuevoEstado = 'EN_CURSO';
     else if (cita.estado === 'EN_CURSO') nuevoEstado = 'COMPLETADA';
     else return;
 
-    startTransition(async () => {
+    // Optimistic update (synchronous — startTransition tracks this correctly)
+    startTransition(() => {
       addOptimisticCita({ id: cita.id, nuevoEstado });
-      const res = await updateEstadoCita(cita.id, nuevoEstado);
+    });
+
+    // Async work outside startTransition
+    updateEstadoCita(cita.id, nuevoEstado).then(res => {
       if (!res.success) {
-        alert(res.message);
+        addToast(res.message || 'Error al actualizar cita', 'error');
         router.refresh();
         return;
       }
+
+      addToast(res.message || 'Cita actualizada', 'success');
 
       if (nuevoEstado === 'EN_CURSO') {
         router.push(`/nueva-historia?patientId=${cita.pacienteId}&medicoId=${cita.medicoId}&citaId=${cita.id}`);
       }
     });
-  };
+  }, [addOptimisticCita, router, addToast]);
 
-  const retroceder = (id: string, estadoActual: string) => {
+  const retroceder = useCallback((id: string, estadoActual: string) => {
     let nuevoEstado = '';
     if (estadoActual === 'COMPLETADA') nuevoEstado = 'EN_CURSO';
     else if (estadoActual === 'PENDIENTE_PAGO') nuevoEstado = 'EN_CURSO';
     else if (estadoActual === 'EN_CURSO') nuevoEstado = 'PROGRAMADA';
     else return;
 
-    startTransition(async () => {
+    // Optimistic update (synchronous)
+    startTransition(() => {
       addOptimisticCita({ id, nuevoEstado });
-      await updateEstadoCita(id, nuevoEstado);
     });
-  };
+
+    // Async work outside startTransition
+    updateEstadoCita(id, nuevoEstado).then(res => {
+      if (!res.success) {
+        addToast(res.message || 'Error al retroceder cita', 'error');
+        router.refresh();
+      } else {
+        addToast(res.message || 'Cita retrocedida', 'success');
+      }
+    });
+  }, [addOptimisticCita, router, addToast]);
 
   const verHistoria = (nombre: string) => {
     alert(`Ver Historia Clínica de: ${nombre}\n(Funcionalidad en desarrollo)`);

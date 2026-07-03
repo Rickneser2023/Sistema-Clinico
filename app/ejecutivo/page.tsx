@@ -1,15 +1,25 @@
 import React from 'react';
 import Card from '@/components/Card';
 import { DonutChart, HorizontalBarChart, RevenueExecutiveChart } from '@/components/ClinicalCharts';
-import { getExecutiveKPIs, getRevenueEvolution, getSpecialtyProfitability, getMedicoEfficiency } from '@/app/actions/dashboard';
+import { getExecutiveKPIs, getRevenueEvolution, getSpecialtyProfitability, getMedicoEfficiency, getBoxOccupancy } from '@/app/actions/dashboard';
 
 export default async function DashboardEjecutivoPage() {
-  const [kpi, revenue, rentabilidad, medicos] = await Promise.all([
+  const [kpi, revenue, rentabilidad, medicos, boxes] = await Promise.all([
     getExecutiveKPIs(),
     getRevenueEvolution(),
     getSpecialtyProfitability(),
-    getMedicoEfficiency()
+    getMedicoEfficiency(),
+    getBoxOccupancy()
   ]);
+
+  // Transform box occupancy data into DonutChart's OccupancyDataPoint format
+  const totalBoxes = boxes.data.length;
+  const ocupados = boxes.data.filter(b => b.estadoReal === 'OCUPADO' || b.estadoReal === 'MANTENIMIENTO').length;
+  const disponibles = totalBoxes - ocupados;
+  const ocupacionDonut = totalBoxes > 0 ? [
+    { nombre: 'Ocupado', porcentaje: Math.round((ocupados / totalBoxes) * 100), color: 'var(--primary-color)' },
+    { nombre: 'Disponible', porcentaje: Math.round((disponibles / totalBoxes) * 100), color: '#e2e8f0' },
+  ] : [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -90,7 +100,7 @@ export default async function DashboardEjecutivoPage() {
             subtitle="Porcentaje de uso de consultorios hoy"
           >
             <div style={{ height: '140px', display: 'flex', alignItems: 'center' }}>
-              <DonutChart />
+              <DonutChart data={ocupacionDonut} />
             </div>
           </Card>
         </div>
