@@ -95,7 +95,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     ? user.nombre.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     : '??';
 
-  const filteredItems = MENU_ITEMS.filter(item => allowedModules.includes(item.moduleKey));
+  const filteredItems = MENU_ITEMS.filter(item => {
+    if (item.moduleKey === 'configuracion' && user?.rol !== 'ADMIN') return false;
+    return allowedModules.includes(item.moduleKey);
+  });
 
   return (
     <>

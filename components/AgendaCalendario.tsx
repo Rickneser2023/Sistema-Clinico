@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useOptimistic, useEffect, useCallback } from 'react';
 import Card from './Card';
-import { createCita, updateEstadoCita } from '@/app/actions/agenda';
+import { createCita, updateEstadoCita, reprogramarCita } from '@/app/actions/agenda';
 import { useAuth } from './AuthProvider';
 import { useToast } from './ToastProvider';
 
@@ -36,7 +36,7 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
   }, []);
 
   // Estados del Modal
-  const [modalMode, setModalMode] = useState<'NONE' | 'NEW_CITA' | 'VIEW_CITA'>('NONE');
+  const [modalMode, setModalMode] = useState<'NONE' | 'NEW_CITA' | 'VIEW_CITA' | 'REPROGRAMAR_CITA'>('NONE');
   const [selectedSlot, setSelectedSlot] = useState<{ inicio: string, fin: string } | null>(null);
   const [selectedCita, setSelectedCita] = useState<Cita | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -53,7 +53,16 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
 
   // Datos para renderizar el Grid Semanal
   const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-  const hours = Array.from({ length: 9 }, (_, i) => i + 9); // 9:00 AM a 5:00 PM
+  
+  const allHours = filteredCitas.map((c: Cita) => new Date(c.fechaHoraInicio).getHours());
+  const endHours = filteredCitas.map((c: Cita) => {
+     const d = new Date(c.fechaHoraFin);
+     return (d.getMinutes() > 0) ? d.getHours() : d.getHours() - 1;
+  });
+  
+  const minHour = Math.max(0, Math.min(9, ...allHours, 9));
+  const maxHour = Math.min(23, Math.max(17, ...endHours, 17));
+  const hours = Array.from({ length: maxHour - minHour + 1 }, (_, i) => i + minHour);
 
   // Helper para calcular la fecha objetivo (si ya pasó, se mueve a la próxima semana)
   const getTargetDateForDayIndex = (dayIndex: number) => {
@@ -153,16 +162,21 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
     }
   };
 
-  // Ayudante para filtrar citas por celda coincidiendo exactamente con la fecha calculada
+  // Ayudante para filtrar citas por celda de 30 minutos (verificando superposición)
   const getCitasForSlot = (dayIndex: number, hour: number, minutes: number) => {
      const targetDate = getTargetDateForDayIndex(dayIndex);
+     
+     const slotStart = new Date(targetDate);
+     slotStart.setHours(hour, minutes, 0, 0);
+     
+     const slotEnd = new Date(targetDate);
+     slotEnd.setHours(hour, minutes + 30, 0, 0);
+     
      return filteredCitas.filter(c => {
-        const d = new Date(c.fechaHoraInicio);
-        return d.getDate() === targetDate.getDate() && 
-               d.getMonth() === targetDate.getMonth() &&
-               d.getFullYear() === targetDate.getFullYear() && 
-               d.getHours() === hour &&
-               d.getMinutes() === minutes;
+        const citaStart = new Date(c.fechaHoraInicio);
+        const citaEnd = new Date(c.fechaHoraFin);
+        
+        return citaStart < slotEnd && citaEnd > slotStart;
      });
   };
 
@@ -264,8 +278,8 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
       </div>
 
       <Card title="Calendario Semanal" subtitle="Haz clic en un bloque de 30 minutos para agendar una cita al instante">
-        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: `80px repeat(${days.length}, 1fr)`, gap: '1px', backgroundColor: 'var(--border-color)', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', minWidth: '700px' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', minWidth: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `80px repeat(${days.length}, minmax(150px, 1fr))`, gap: '1px', backgroundColor: 'var(--border-color)', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', minWidth: 'max-content' }}>
           {/* Encabezados de Días */}
           <div style={{ backgroundColor: 'var(--bg-app)', padding: '10px' }}></div>
           {days.map((d, dayIdx) => {
@@ -349,19 +363,17 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
                               borderRadius: '4px',
                               fontSize: '0.75rem',
                               borderLeft: `3px solid ${textColor}`,
-                              opacity: (c.estado === 'CANCELADA' || c.id === 'temp-id') ? 0.6 : 1,
-                              textDecoration: c.estado === 'CANCELADA' ? 'line-through' : 'none',
                               boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                              overflow: 'hidden',
-                              whiteSpace: 'nowrap',
-                              textOverflow: 'ellipsis'
-                            }}>
-                            <strong style={{ display: 'block', marginBottom: '2px' }}>{c.paciente?.nombre} {c.paciente?.apellido}</strong>
-                            {c.estado !== 'CANCELADA' && <span style={{ color: 'inherit', opacity: 0.8, fontSize: '0.7rem' }}>Dr. {c.medico?.user?.nombre} | Box: {c.box?.nombre}</span>}
+                              position: 'relative'
+                            }}
+                          >
+                            <div style={{ fontWeight: 600, marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.paciente?.nombre} {c.paciente?.apellido}</div>
+                            <div style={{ opacity: 0.8, fontSize: '0.7rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Dr. {c.medico?.user?.nombre} | Box: {c.box?.nombre}</div>
+                            
                             {adelantoLabel && (
-                              <span style={{ display: 'inline-block', marginTop: '3px', padding: '1px 5px', borderRadius: '4px', backgroundColor: adelantoLabel.bg, color: adelantoLabel.color, fontSize: '0.64rem', fontWeight: 700 }}>
+                              <div style={{ marginTop: '4px', padding: '2px 4px', backgroundColor: adelantoLabel.bg, color: adelantoLabel.color, borderRadius: '4px', fontSize: '0.65rem', fontWeight: 600, display: 'inline-block' }}>
                                 {adelantoLabel.text}
-                              </span>
+                              </div>
                             )}
                           </div>
                         );
@@ -608,6 +620,14 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
                   Cancelar Cita
                 </button>
               )}
+              {selectedCita.estado === 'PROGRAMADA' && new Date(selectedCita.fechaHoraFin) < new Date() && (
+                <button 
+                  onClick={() => setModalMode('REPROGRAMAR_CITA')}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #d97706', color: '#d97706', backgroundColor: '#fef3c7', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' }}
+                >
+                  Reprogramar Cita Vencida
+                </button>
+              )}
               {selectedCita.estado === 'PROGRAMADA' && (
                 <button 
                   onClick={() => handleUpdateEstado(selectedCita.id, 'EN_CURSO')}
@@ -627,6 +647,66 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Optimizado: Reprogramar Cita */}
+      {modalMode === 'REPROGRAMAR_CITA' && selectedCita && (
+        <div style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div style={{ backgroundColor: 'var(--bg-card)', padding: '2rem', borderRadius: '16px', width: '95%', maxWidth: '500px', boxShadow: 'var(--shadow-lg)' }}>
+            <h2 style={{ marginBottom: '0.5rem', color: 'var(--secondary-color)', fontSize: '1.25rem', fontWeight: 700 }}>Reprogramar Cita</h2>
+            <p style={{ color: 'var(--secondary-light)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Seleccione el nuevo horario para la cita de {selectedCita.paciente?.nombre} {selectedCita.paciente?.apellido}.</p>
+            
+            {errorMsg && (
+              <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-critico)', color: 'var(--color-critico)', borderRadius: '8px', marginBottom: '1.5rem', fontSize: '0.875rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                {errorMsg}
+              </div>
+            )}
+
+            <form action={async (formData: FormData) => {
+              const localStart = new Date(formData.get('nuevaFechaHoraInicio') as string);
+              const localEnd = new Date(formData.get('nuevaFechaHoraFin') as string);
+              
+              if (localStart < new Date()) {
+                setErrorMsg("No se pueden agendar citas en horarios pasados.");
+                return;
+              }
+
+              const res = await reprogramarCita(selectedCita.id, localStart.toISOString(), localEnd.toISOString());
+              if (!res.success) {
+                setErrorMsg(res.message || 'Error desconocido al reprogramar');
+                addToast(res.message || 'Error desconocido al reprogramar', 'error');
+              } else {
+                setModalMode('NONE');
+                addToast(res.message || 'Cita reprogramada exitosamente', 'success');
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nueva Hora Inicio</label>
+                  <input type="datetime-local" name="nuevaFechaHoraInicio" className="form-control" required />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nueva Hora Fin</label>
+                  <input type="datetime-local" name="nuevaFechaHoraFin" className="form-control" required />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setModalMode('VIEW_CITA')}>Volver</button>
+                <button type="submit" className="btn btn-primary" disabled={isPending}>
+                  {isPending ? 'Validando...' : 'Confirmar Nuevo Horario'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

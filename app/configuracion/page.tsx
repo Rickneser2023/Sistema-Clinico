@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
 import { useAuth } from '@/components/AuthProvider';
 import { getAllUsers, getRolePermissions, updateRolePermission, actualizarEstadoUsuario, cambiarPassword, UserData } from '@/app/actions/usuarios';
@@ -26,7 +27,8 @@ const ROLES = [
 
 export default function ConfiguracionPage() {
   const { theme, toggleTheme } = useTheme();
-  const { user: currentUser, loginUser } = useAuth();
+  const { user: currentUser, loginUser, loading } = useAuth();
+  const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
   const [activeTab, setActiveTab] = useState('usuarios');
   const [perms, setPerms] = useState<Record<string, string[]>>({});
@@ -35,6 +37,13 @@ export default function ConfiguracionPage() {
   const [newPassword, setNewPassword] = useState('');
   const [passMsg, setPassMsg] = useState('');
   const [statusMsg, setStatusMsg] = useState<{ userId: string; msg: string } | null>(null);
+
+  useEffect(() => {
+    if (!loading && currentUser && currentUser.rol !== 'ADMIN') {
+      router.replace('/');
+    }
+  }, [currentUser, loading, router]);
+
 
   const loadUsers = async () => {
     const data = await getAllUsers();
@@ -82,6 +91,10 @@ export default function ConfiguracionPage() {
       setTimeout(() => { setChangingPass(null); setNewPassword(''); setPassMsg(''); }, 1500);
     }
   };
+
+  if (loading || !currentUser || currentUser.rol !== 'ADMIN') {
+    return null;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
