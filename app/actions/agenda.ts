@@ -224,6 +224,66 @@ export async function updateEstadoCita(citaId: string, nuevoEstado: string) {
   }
 }
 
+export async function reprogramarCita(citaId: string, nuevaFechaInicio: string, nuevaFechaFin: string) {
+  const start = new Date(nuevaFechaInicio);
+  const end = new Date(nuevaFechaFin);
+
+  if (start < new Date()) {
+    return { success: false, message: "No se puede reprogramar a una fecha pasada." };
+  }
+
+  try {
+    const citaActual = await prisma.cita.findUnique({
+      where: { id: citaId }
+    });
+
+    if (!citaActual) return { success: false, message: "Cita no encontrada." };
+
+    const conflicto = await prisma.cita.findFirst({
+      where: {
+        id: { not: citaId },
+        estado: { not: "CANCELADA" },
+        OR: [
+          { medicoId: citaActual.medicoId },
+          { boxId: citaActual.boxId }
+        ],
+        AND: [
+          { fechaHoraInicio: { lt: end } },
+          { fechaHoraFin: { gt: start } }
+        ]
+      },
+      include: {
+        medico: { select: { user: { select: { nombre: true } } } },
+        box: { select: { nombre: true } }
+      }
+    });
+
+    if (conflicto) {
+      const isDoctor = conflicto.medicoId === citaActual.medicoId;
+      const resourceName = isDoctor ? conflicto.medico?.user?.nombre : conflicto.box?.nombre;
+      return {
+        message: `Conflicto de horario: El ${isDoctor ? 'médico' : 'box'} '${resourceName || 'seleccionado'}' ya tiene un compromiso en ese rango.`,
+        success: false
+      };
+    }
+
+    await prisma.cita.update({
+      where: { id: citaId },
+      data: {
+        fechaHoraInicio: start,
+        fechaHoraFin: end,
+        estado: "PROGRAMADA"
+      }
+    });
+
+    revalidatePath("/agenda");
+    return { success: true, message: "Cita reprogramada exitosamente." };
+  } catch (error) {
+    console.error("Error reprogramando cita:", error);
+    return { success: false, message: "Error al reprogramar la cita." };
+  }
+}
+
 export async function getCitas(filters?: {
   fecha?: string;
   medicoId?: string;
