@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: medihist
+    runtime: node
+    plan: free
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && node scripts/seed-if-empty.js && npm run start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: medihist-db
+          property: connectionString
+
+databases:
+  - name: medihist-db
+    plan: free
+    databaseName: db_sistema_clinico
+    user: medihist_user

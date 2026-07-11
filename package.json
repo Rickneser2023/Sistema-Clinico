@@ -6,10 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:production": "next start -p $PORT",
     "lint": "eslint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
+    "seed": "npx tsx prisma/seed.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
