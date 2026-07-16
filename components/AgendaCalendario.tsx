@@ -8,17 +8,17 @@ import { useToast } from './ToastProvider';
 
 type Cita = any; 
 type Medico = any;
-type Box = any;
+type Especialidad = any;
 type Paciente = any;
 
 interface Props {
   citasIniciales: Cita[];
   medicos: Medico[];
-  boxes: Box[];
+  especialidades: Especialidad[];
   pacientes: Paciente[];
 }
 
-export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacientes }: Props) {
+export default function AgendaCalendario({ citasIniciales, medicos, especialidades, pacientes }: Props) {
   const { user } = useAuth();
   const { toast: addToast } = useToast();
   const [optimisticCitas, addOptimisticCita] = useOptimistic(
@@ -37,11 +37,11 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isNewPatient, setIsNewPatient] = useState(false);
   const [filterMedico, setFilterMedico] = useState('');
-  const [filterBox, setFilterBox] = useState('');
+  const [filterEspecialidad, setFilterEspecialidad] = useState('');
 
   const filteredCitas = optimisticCitas.filter((c: Cita) => {
     if (filterMedico && c.medicoId !== filterMedico) return false;
-    if (filterBox && c.boxId !== filterBox) return false;
+    if (filterEspecialidad && c.box?.especialidad?.id !== filterEspecialidad) return false;
     return true;
   });
 
@@ -192,12 +192,12 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <select value={filterMedico} onChange={(e) => setFilterMedico(e.target.value)} style={{ padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem', backgroundColor: 'var(--bg-card)', color: 'var(--secondary-color)' }}>
-              <option value="">Todos los medicos</option>
+              <option value="">Todos los médicos</option>
               {medicos.map((m: Medico) => <option key={m.id} value={m.id}>Dr. {m.user?.nombre}</option>)}
             </select>
-            <select value={filterBox} onChange={(e) => setFilterBox(e.target.value)} style={{ padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem', backgroundColor: 'var(--bg-card)', color: 'var(--secondary-color)' }}>
-              <option value="">Todos los boxes</option>
-              {boxes.map((b: Box) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+            <select value={filterEspecialidad} onChange={(e) => setFilterEspecialidad(e.target.value)} style={{ padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem', backgroundColor: 'var(--bg-card)', color: 'var(--secondary-color)' }}>
+              <option value="">Todas las especialidades</option>
+              {especialidades.map((e: Especialidad) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
             </select>
           </div>
         </div>
@@ -241,12 +241,13 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
                   >
                      {citas.map(c => {
                          const colors = getCitaColor(c.estado);
+                         const especialidadNombre = c.box?.especialidad?.nombre || 'Sin esp.';
                          return (
                            <div key={c.id} onClick={(e) => handleCitaClick(e, c)}
                              style={{ backgroundColor: colors.bg, color: colors.text, padding: '4px 6px', borderRadius: '4px', fontSize: '0.75rem', borderLeft: `3px solid ${colors.text}`, boxShadow: '0 1px 2px rgba(0,0,0,0.05)', position: 'relative' }}
                            >
                              <div style={{ fontWeight: 600, marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.paciente?.nombre} {c.paciente?.apellido}</div>
-                             <div style={{ opacity: 0.8, fontSize: '0.7rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Dr. {c.medico?.user?.nombre} | Box: {c.box?.nombre}</div>
+                             <div style={{ opacity: 0.8, fontSize: '0.7rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Dr. {c.medico?.user?.nombre} | {especialidadNombre}</div>
                            </div>
                          );
                      })}
@@ -325,10 +326,10 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Consultorio (Box)</label>
-                  <select name="boxId" className="form-control" required defaultValue="">
-                    <option value="" disabled>Asignar Box...</option>
-                    {boxes.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+                  <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Especialidad</label>
+                  <select name="especialidadId" className="form-control" required defaultValue="">
+                    <option value="" disabled>Seleccionar Especialidad...</option>
+                    {especialidades.map((e: Especialidad) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                   </select>
                 </div>
               </div>
@@ -383,8 +384,8 @@ export default function AgendaCalendario({ citasIniciales, medicos, boxes, pacie
                   <div>Dr. {selectedCita.medico?.user?.nombre}</div>
                 </div>
                 <div>
-                  <strong style={{ display: 'block', color: 'var(--secondary-light)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Box</strong>
-                  <div>{selectedCita.box?.nombre}</div>
+                  <strong style={{ display: 'block', color: 'var(--secondary-light)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Especialidad</strong>
+                  <div>{selectedCita.box?.especialidad?.nombre || 'N/A'}</div>
                 </div>
               </div>
               <div>

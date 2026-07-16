@@ -9,7 +9,7 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
   const rawData = {
     pacienteId: formData.get("pacienteId"),
     medicoId: formData.get("medicoId"),
-    boxId: formData.get("boxId"),
+    especialidadId: formData.get("especialidadId"),
     fechaHoraInicio: formData.get("fechaHoraInicio"),
   };
 
@@ -23,12 +23,30 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
     };
   }
 
-  const { pacienteId, medicoId, boxId, fechaHoraInicio } = validatedFields.data;
+  const { pacienteId, medicoId, especialidadId, fechaHoraInicio } = validatedFields.data;
 
   const start = new Date(fechaHoraInicio);
   const end = new Date(start.getTime() + 30 * 60 * 1000);
 
   try {
+    // Resolver un Box disponible para la especialidad seleccionada
+    const boxDisponible = await prisma.box.findFirst({
+      where: {
+        especialidadId,
+        estado: "DISPONIBLE",
+      },
+    });
+
+    if (!boxDisponible) {
+      return {
+        message: "No hay consultorios disponibles para la especialidad seleccionada.",
+        errors: { _form: ["No se encontró un box disponible para esta especialidad."] },
+        success: false
+      };
+    }
+
+    const boxId = boxDisponible.id;
+
     const conflicto = await prisma.cita.findFirst({
       where: {
         estado: { not: "CANCELADA" },

@@ -32,11 +32,11 @@ interface EspecialidadInfo {
 
 const ESPECIALIDADES: EspecialidadInfo[] = [
   { nombre: 'Medicina General', precioBase: 40, boxNombre: 'Box 1 - General', color: '#3b82f6' },
-  { nombre: 'Cardiología', precioBase: 80, boxNombre: 'Box 2 - Cardio', color: '#ef4444' },
-  { nombre: 'Pediatría', precioBase: 50, boxNombre: 'Box 3 - Pedia', color: '#10b981' },
-  { nombre: 'Broncopulmonar', precioBase: 60, boxNombre: 'Box 4 - Bronco', color: '#06b6d4' },
+  { nombre: 'Medicina Interna', precioBase: 80, boxNombre: 'Box 2 - Interna', color: '#ef4444' },
+  { nombre: 'Neurología', precioBase: 50, boxNombre: 'Box 3 - Neuro', color: '#10b981' },
+  { nombre: 'Estimulación Temprana', precioBase: 60, boxNombre: 'Box 4 - Estimulación', color: '#06b6d4' },
   { nombre: 'Traumatología', precioBase: 70, boxNombre: 'Box 5 - Trauma', color: '#f59e0b' },
-  { nombre: 'Dermatología', precioBase: 55, boxNombre: 'Box 6 - Derma', color: '#8b5cf6' },
+  { nombre: 'Psicología', precioBase: 55, boxNombre: 'Box 6 - Psico', color: '#8b5cf6' },
 ]
 
 const ROLE_PERMISSIONS_DEFAULTS: Record<string, string[]> = {

@@ -1,7 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { GetPacientesSchema, GetPacientesParams } from "@/lib/validations/pacientes";
+import { GetPacientesSchema, GetPacientesParams, UpdatePacienteSchema } from "@/lib/validations/pacientes";
+import { revalidatePath } from "next/cache";
 
 export async function getPacientes(params: GetPacientesParams) {
   // Validate input to prevent injection or malformed data
@@ -186,5 +187,49 @@ export async function getPacienteDetallePDF(id: string) {
   } catch (error) {
     console.error("Error fetching paciente detail for PDF:", error);
     return null;
+  }
+}
+
+export async function updatePaciente(prevState: any, formData: FormData) {
+  const rawData = {
+    pacienteId: formData.get("pacienteId"),
+    nombre: formData.get("nombre"),
+    apellido: formData.get("apellido"),
+    fechaNacimiento: formData.get("fechaNacimiento"),
+    genero: formData.get("genero"),
+    tipoSangre: formData.get("tipoSangre") || null,
+    contacto: formData.get("contacto") || null,
+    alergias: formData.get("alergias") || null,
+    antecedentes: formData.get("antecedentes") || null,
+  };
+
+  const validated = UpdatePacienteSchema.safeParse(rawData);
+
+  if (!validated.success) {
+    return {
+      success: false,
+      message: "Por favor corrija los errores en el formulario.",
+      errors: validated.error.flatten().fieldErrors,
+    };
+  }
+
+  const { pacienteId, ...updateData } = validated.data;
+
+  try {
+    await prisma.paciente.update({
+      where: { id: pacienteId },
+      data: {
+        ...updateData,
+        fechaNacimiento: new Date(updateData.fechaNacimiento),
+      },
+    });
+
+    revalidatePath("/pacientes");
+    revalidatePath(`/pacientes/${pacienteId}`);
+
+    return { success: true, message: "Datos del paciente actualizados correctamente." };
+  } catch (error) {
+    console.error("Error updating paciente:", error);
+    return { success: false, message: "Error al actualizar los datos del paciente." };
   }
 }
