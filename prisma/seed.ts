@@ -237,7 +237,6 @@ async function main() {
         data: {
           fechaHoraInicio: fechaInicio,
           fechaHoraFin: fechaFin,
-          motivo: randomItem(['Control rutinario', 'Consulta general', 'Dolor agudo', 'Examen de seguimiento', 'Receta médica', 'Evaluación inicial', 'Dolor crónico', 'Chequeo preventivo']),
           estado,
           pacienteId: paciente.id,
           usuarioId: admin.id,

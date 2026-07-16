@@ -221,7 +221,6 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
             pacienteId: finalPacienteId,
             medicoId: activeMedico.id,
             boxId: boxId,
-            motivo: data.motivo,
             fechaHoraInicio: now,
             fechaHoraFin: now,
             usuarioId: resolvedUsuarioId,
@@ -257,6 +256,18 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
         _form: ["Hubo un problema de base de datos. Inténtalo más tarde."]
       }
     };
+  }
+
+  // Si hay cita asociada, registrar la hora real de fin de atención
+  if (data.citaId) {
+    try {
+      await prisma.cita.update({
+        where: { id: data.citaId },
+        data: { fechaHoraFin: new Date() },
+      });
+    } catch (e) {
+      console.error("Error updating fechaHoraFin:", e);
+    }
   }
 
   // Redirigir en caso de éxito

@@ -11,7 +11,6 @@ export interface CitaProxima {
   boxNombre: string;
   horaInicio: Date;
   horaFin: Date;
-  motivo: string;
   estado: string;
 }
 
@@ -42,7 +41,6 @@ export async function getProximasCitas(): Promise<CitaProxima[]> {
       boxNombre: c.box.nombre,
       horaInicio: c.fechaHoraInicio,
       horaFin: c.fechaHoraFin,
-      motivo: c.motivo,
       estado: c.estado
     }));
   } catch (error) {

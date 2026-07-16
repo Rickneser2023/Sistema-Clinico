@@ -11,7 +11,6 @@ type CitaKanban = {
   medicoId: string;
   pacienteNombre: string;
   medicoAsignado: string;
-  motivo: string;
   estado: string;
   rawInicioISO: string;
   saldoPendiente: number;
@@ -229,7 +228,6 @@ export default function KanbanAtencion({ citasIniciales }: Props) {
                         <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline', marginRight: '3px' }}><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
                         {p.medicoAsignado}
                       </span>
-                      <span style={{ fontStyle: 'italic' }}>{p.motivo}</span>
                       {p.estado === 'PENDIENTE_PAGO' && (
                         <span style={{ color: '#dc2626', fontWeight: 800 }}>
                           Saldo: {new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(p.saldoPendiente)}

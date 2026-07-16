@@ -108,7 +108,6 @@ export default function PatientTabsClient({ historias, citas, patientName }: { h
                 <thead>
                   <tr>
                     <th>Fecha y Hora</th>
-                    <th>Motivo</th>
                     <th>Estado</th>
                   </tr>
                 </thead>
@@ -118,7 +117,6 @@ export default function PatientTabsClient({ historias, citas, patientName }: { h
                       <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
                         {cita.fechaHora}
                       </td>
-                      <td style={{ fontWeight: 700 }}>{cita.motivo}</td>
                       <td>
                         <span className={`badge ${cita.estado === 'COMPLETADA' ? 'badge-estable' : cita.estado === 'PROGRAMADA' ? 'badge-observacion' : 'badge-critico'}`}>
                           {cita.estado}

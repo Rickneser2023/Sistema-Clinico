@@ -168,16 +168,13 @@ export default function NotificationDropdown() {
                     <span>Dr. {c.medicoNombre}</span>
                     <span>Box {c.boxNombre}</span>
                   </div>
-                  {c.motivo && (
-                    <div style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--secondary-light)',
-                      marginTop: '0.25rem',
-                      fontStyle: 'italic'
-                    }}>
-                      {c.motivo}
-                    </div>
-                  )}
+                  <div style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--secondary-light)',
+                    marginTop: '0.25rem'
+                  }}>
+                    {c.estado}
+                  </div>
                 </Link>
               ))}
             </div>

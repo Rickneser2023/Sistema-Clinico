@@ -42,7 +42,6 @@ export default async function AtencionPage() {
     medicoId: c.medicoId,
     pacienteNombre: `${c.paciente.nombre} ${c.paciente.apellido}`,
     medicoAsignado: `Dr. ${c.medico.user.nombre}`,
-    motivo: c.motivo,
     estado: c.estado,
     rawInicioISO: c.fechaHoraInicio.toISOString(),
     saldoPendiente: c.factura

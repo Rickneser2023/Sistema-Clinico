@@ -57,7 +57,6 @@ export async function getReporteCitas(filtros: FiltrosReporte) {
       medico: c.medico.user?.nombre || "N/A",
       especialidad: c.medico.especialidad?.nombre || "N/A",
       estado: c.estado,
-      motivo: c.motivo,
     }));
 
     return {

@@ -10,9 +10,7 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
     pacienteId: formData.get("pacienteId"),
     medicoId: formData.get("medicoId"),
     boxId: formData.get("boxId"),
-    motivo: formData.get("motivo"),
     fechaHoraInicio: formData.get("fechaHoraInicio"),
-    fechaHoraFin: formData.get("fechaHoraFin"),
     montoAdelanto: formData.get("montoAdelanto"),
     metodoAdelanto: formData.get("metodoAdelanto") || undefined,
     observacionPago: formData.get("observacionPago") || undefined,
@@ -28,10 +26,11 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
     };
   }
 
-  const { pacienteId, medicoId, boxId, motivo, fechaHoraInicio, fechaHoraFin, montoAdelanto, metodoAdelanto, observacionPago } = validatedFields.data;
+  const { pacienteId, medicoId, boxId, fechaHoraInicio, montoAdelanto, metodoAdelanto, observacionPago } = validatedFields.data;
 
   const start = new Date(fechaHoraInicio);
-  const end = new Date(fechaHoraFin);
+  const end = new Date(start.getTime() + 30 * 60 * 1000); // 30 minutos por defecto
+
   const comprobante = formData.get("comprobanteAdelanto");
   const comprobanteFile = comprobante instanceof File && comprobante.size > 0 ? comprobante : null;
 
@@ -109,13 +108,12 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
       finalPacienteId = nuevoPaciente.id;
     }
 
-    // 2. Crear Cita
+    // 2. Crear Cita (sin motivo, fechaHoraFin = inicio + 30min por defecto)
     const nuevaCita = await prisma.cita.create({
       data: {
         pacienteId: finalPacienteId,
         medicoId,
         boxId,
-        motivo,
         fechaHoraInicio: start,
         fechaHoraFin: end,
         usuarioId,
@@ -188,6 +186,21 @@ export async function createCita(prevState: FormStateAgenda, formData: FormData)
 export async function updateEstadoCita(citaId: string, nuevoEstado: string) {
   const estadoValido = nuevoEstado as "PROGRAMADA" | "EN_CURSO" | "COMPLETADA" | "CANCELADA" | "PENDIENTE_PAGO";
   try {
+    if (nuevoEstado === "EN_CURSO") {
+      // Cuando el doctor inicia la atención, registrar la hora real de inicio
+      await prisma.cita.update({
+        where: { id: citaId },
+        data: {
+          estado: estadoValido,
+          fechaHoraInicio: new Date(),
+        },
+      });
+      revalidatePath("/agenda");
+      revalidatePath("/atencion");
+      revalidatePath("/facturacion");
+      return { success: true };
+    }
+
     if (nuevoEstado === "COMPLETADA") {
       const factura = await prisma.factura.findUnique({
         where: { citaId },
