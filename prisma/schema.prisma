@@ -56,14 +56,6 @@ enum MetodoPago {
   PLIN
 }
 
-enum EstadoAdelanto {
-  NO_REQUIERE
-  PENDIENTE
-  COMPROBANTE_ENVIADO
-  VALIDADO
-  RECHAZADO
-}
-
 // Modelo Especialidad (Catálogo de Precios y Áreas)
 model Especialidad {
   id         String   @id @default(uuid())
@@ -233,19 +225,13 @@ model Cita {
 model Factura {
   id            String      @id @default(uuid())
   montoBase     Decimal     @db.Decimal(10, 2) @default(0)
-  montoAdelanto Decimal     @db.Decimal(10, 2) @default(0)
   montoTotal    Decimal     @db.Decimal(10, 2)
   estadoPago    EstadoPago  @default(PENDIENTE)
   metodoPago    MetodoPago?
-  metodoAdelanto MetodoPago?
-  estadoAdelanto EstadoAdelanto @default(NO_REQUIERE)
-  comprobanteUrl String?
   comprobanteDatos Bytes?
   comprobanteTipo String?
   observacionPago String?
-  fechaComprobante DateTime?
   fechaValidacion DateTime?
-  validadoPorId String?
   categoria     String      @default("Consulta")
   fechaEmision  DateTime    @default(now())
 

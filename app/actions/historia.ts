@@ -165,12 +165,9 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
         }
 
         if (facturaActualizada) {
-          const adelantoValidado = facturaActualizada.estadoAdelanto === 'VALIDADO'
-            ? Number(facturaActualizada.montoAdelanto)
-            : 0;
           const saldoPendiente = facturaActualizada.estadoPago === 'PAGADO'
             ? 0
-            : Math.max(Number(facturaActualizada.montoTotal) - adelantoValidado, 0);
+            : Number(facturaActualizada.montoTotal);
 
           const nuevoEstado = saldoPendiente > 0 ? 'PENDIENTE_PAGO' : 'COMPLETADA';
           await tx.cita.update({
@@ -237,7 +234,6 @@ export async function createHistoriaClinica(prevState: FormState, formData: Form
         await tx.factura.create({
           data: {
             montoBase: precioFinal,
-            montoAdelanto: 0,
             montoTotal: precioFinal,
             estadoPago: 'PENDIENTE',
             citaId: nuevaCita.id,

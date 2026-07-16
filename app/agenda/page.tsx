@@ -29,7 +29,7 @@ export default async function AgendaPage() {
         paciente: { select: { id: true, nombre: true, apellido: true } },
         medico: { select: { id: true, user: { select: { nombre: true } } } },
         box: { select: { id: true, nombre: true } },
-        factura: { select: { montoTotal: true, montoAdelanto: true, estadoPago: true, estadoAdelanto: true } }
+        factura: { select: { montoTotal: true, estadoPago: true } }
       },
       orderBy: { fechaHoraInicio: 'asc' }
     }),
@@ -51,7 +51,6 @@ export default async function AgendaPage() {
     factura: cita.factura ? {
       ...cita.factura,
       montoTotal: Number(cita.factura.montoTotal),
-      montoAdelanto: Number(cita.factura.montoAdelanto),
     } : null,
   }));
 

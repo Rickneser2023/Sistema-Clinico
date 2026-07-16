@@ -1,7 +1,5 @@
-import { PrismaClient, Role, Genero, EstadoMedico, EstadoBox, EstadoCita, EstadoPago, MetodoPago, EstadoAdelanto } from '@prisma/client'
+import { PrismaClient, Role, Genero, EstadoCita, EstadoPago, MetodoPago } from '@prisma/client'
 import { hashPassword } from '../lib/password'
-import { mkdir, writeFile } from 'fs/promises'
-import path from 'path'
 
 const prisma = new PrismaClient()
 
@@ -10,7 +8,6 @@ const NOMBRES_FEM = ['María', 'Carmen', 'Ana', 'Patricia', 'Claudia', 'Sofía',
 const APELLIDOS = ['González', 'Muñoz', 'Rojas', 'Díaz', 'Pérez', 'Soto', 'Contreras', 'Silva', 'Martínez', 'Sepúlveda', 'Morales', 'Rodríguez', 'López', 'Fuentes', 'Hernández', 'Torres', 'Araya', 'Ramírez', 'Espinoza', 'Castillo']
 const TIPOS_SANGRE = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-']
 const ALERGIAS_COMUNES = ['Penicilina', 'Sulfas', 'Aspirina', 'Polen', 'Frutos secos', 'Ninguna', 'Ninguna', 'Ninguna']
-const DEMO_COMPROBANTE_URL = '/uploads/comprobantes/demo-comprobante.png'
 
 function randomBetween(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min
@@ -59,16 +56,6 @@ async function main() {
   await prisma.paciente.deleteMany()
   await prisma.especialidad.deleteMany()
   await prisma.rolePermission.deleteMany()
-
-  const comprobantesDir = path.join(process.cwd(), 'public', 'uploads', 'comprobantes')
-  await mkdir(comprobantesDir, { recursive: true })
-  await writeFile(
-    path.join(comprobantesDir, 'demo-comprobante.png'),
-    Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/luzD9wAAAABJRU5ErkJggg==',
-      'base64'
-    )
-  )
 
   // ─── 1. ESPECIALIDADES ───
   console.log('🏥 Creando especialidades...')
@@ -122,7 +109,6 @@ async function main() {
     }
   })
 
-  // Silvestre es el único médico del sistema
   const medico = await prisma.medico.create({
     data: {
       numColegiatura: 'CMP-10001',
@@ -188,10 +174,10 @@ async function main() {
   }
   console.log(`✅ ${pacientesCreated.length} pacientes creados.`)
 
-  // ─── 6. CITAS ───
+  // ─── 6. CITAS Y FACTURAS ───
   console.log('📅 Creando citas y facturas...')
 
-  const GENEROS_CITA: EstadoCita[] = ['COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'PROGRAMADA', 'PROGRAMADA', 'PROGRAMADA', 'PENDIENTE_PAGO', 'CANCELADA']
+  const ESTADOS_CITA: EstadoCita[] = ['COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'COMPLETADA', 'PROGRAMADA', 'PROGRAMADA', 'PROGRAMADA', 'PENDIENTE_PAGO', 'CANCELADA']
 
   let totalCitas = 0
   let totalFacturas = 0
@@ -231,7 +217,7 @@ async function main() {
       const duracion = randomBetween(15, 45)
       const fechaFin = new Date(fechaInicio.getTime() + duracion * 60 * 1000)
 
-      const estado = esEsteMes && i < 12 ? randomItem(GENEROS_CITA) : randomItem(GENEROS_CITA)
+      const estado = esEsteMes && i < 12 ? randomItem(ESTADOS_CITA) : randomItem(ESTADOS_CITA)
 
       const cita = await prisma.cita.create({
         data: {
@@ -248,55 +234,20 @@ async function main() {
 
       totalCitas++
 
-      if (estado !== 'CANCELADA' && mesesAtras >= 0) {
+      if (estado !== 'CANCELADA') {
         const espData = espRecords[esp.nombre]!
-        const montoBase = espData.precioBase
-        const requiereAdelanto = Math.random() > 0.45
-        const montoAdelanto = requiereAdelanto ? randomBetween(5, Math.min(25, montoBase - 5)) : 0
-        const montoTotal = montoBase
-
-        const metodoAdelanto = montoAdelanto > 0
-          ? randomItem([MetodoPago.EFECTIVO, MetodoPago.TRANSFERENCIA, MetodoPago.YAPE, MetodoPago.PLIN])
-          : null
-
-        const estadoAdelanto = montoAdelanto <= 0
-          ? EstadoAdelanto.NO_REQUIERE
-          : estado === 'PENDIENTE_PAGO'
-            ? EstadoAdelanto.VALIDADO
-            : randomItem([
-                EstadoAdelanto.VALIDADO,
-                EstadoAdelanto.COMPROBANTE_ENVIADO,
-                EstadoAdelanto.PENDIENTE,
-                EstadoAdelanto.RECHAZADO,
-              ])
-
-        const adelantoValidado = estadoAdelanto === EstadoAdelanto.VALIDADO ? montoAdelanto : 0
+        const montoTotal = espData.precioBase
         const estadoPago = estado === 'COMPLETADA' ? EstadoPago.PAGADO : EstadoPago.PENDIENTE
-
-        const comprobanteUrl = estadoAdelanto === EstadoAdelanto.COMPROBANTE_ENVIADO
-          ? DEMO_COMPROBANTE_URL
+        const metodoPago = estadoPago === EstadoPago.PAGADO
+          ? randomItem([MetodoPago.EFECTIVO, MetodoPago.TARJETA, MetodoPago.TRANSFERENCIA, MetodoPago.YAPE, MetodoPago.PLIN])
           : null
 
         await prisma.factura.create({
           data: {
-            montoBase,
-            montoAdelanto,
+            montoBase: montoTotal,
             montoTotal,
             estadoPago,
-            metodoPago: estadoPago === EstadoPago.PAGADO
-              ? randomItem([MetodoPago.EFECTIVO, MetodoPago.TARJETA, MetodoPago.TRANSFERENCIA, MetodoPago.YAPE, MetodoPago.PLIN])
-              : null,
-            metodoAdelanto,
-            estadoAdelanto,
-            comprobanteUrl,
-            observacionPago: estadoAdelanto === EstadoAdelanto.RECHAZADO
-              ? 'Comprobante de prueba rechazado por monto no legible.'
-              : estado === 'PENDIENTE_PAGO'
-                ? `Saldo pendiente generado por seed: ${montoTotal - adelantoValidado}`
-                : null,
-            fechaComprobante: comprobanteUrl ? fechaInicio : null,
-            fechaValidacion: estadoAdelanto === EstadoAdelanto.VALIDADO ? fechaInicio : null,
-            validadoPorId: estadoAdelanto === EstadoAdelanto.VALIDADO ? admin.id : null,
+            metodoPago,
             categoria: 'Consulta',
             fechaEmision: fechaInicio,
             citaId: cita.id,

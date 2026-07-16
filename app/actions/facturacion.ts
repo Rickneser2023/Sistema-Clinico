@@ -3,26 +3,26 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-// Acción para actualizar el precio del catálogo (Administradores)
-export async function updatePrecioEspecialidad(id: string, nuevoPrecio: number) {
-  try {
-    await prisma.especialidad.update({
-      where: { id },
-      data: { precioBase: nuevoPrecio },
-    });
-    revalidatePath("/caja");
-    return { success: true };
-  } catch (error) {
-    console.error("Error al actualizar precio de especialidad:", error);
-    return { success: false, error: "Error al actualizar precio" };
-  }
-}
-
-// Acción para que el cajero registre el pago de una factura
 type MetodoPagoInput = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "YAPE" | "PLIN";
 
-export async function registrarPagoFactura(facturaId: string, metodoPago: MetodoPagoInput) {
+export async function registrarPagoFactura(facturaId: string, metodoPago: MetodoPagoInput, comprobanteFile?: File | null) {
   try {
+    let comprobanteDatos: Uint8Array<ArrayBuffer> | null = null;
+    let comprobanteTipo: string | null = null;
+
+    if (comprobanteFile && comprobanteFile.size > 0) {
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+      if (!allowedTypes.includes(comprobanteFile.type)) {
+        return { success: false, message: "El comprobante debe ser JPG/PNG/WebP o PDF." };
+      }
+      if (comprobanteFile.size > 5 * 1024 * 1024) {
+        return { success: false, message: "El comprobante no debe superar los 5 MB." };
+      }
+      const buf = await comprobanteFile.arrayBuffer();
+      comprobanteDatos = new Uint8Array(buf) as Uint8Array<ArrayBuffer>;
+      comprobanteTipo = comprobanteFile.type;
+    }
+
     await prisma.$transaction(async (tx) => {
       const factura = await tx.factura.update({
         where: { id: facturaId },
@@ -30,6 +30,7 @@ export async function registrarPagoFactura(facturaId: string, metodoPago: Metodo
           estadoPago: 'PAGADO',
           metodoPago: metodoPago,
           fechaValidacion: new Date(),
+          ...(comprobanteDatos ? { comprobanteDatos, comprobanteTipo } : {}),
         },
         include: { cita: { select: { estado: true } } },
       });
@@ -51,57 +52,19 @@ export async function registrarPagoFactura(facturaId: string, metodoPago: Metodo
   }
 }
 
-/** Wrapper que extrae metodo del FormData y llama a registrarPagoFactura */
 export async function registrarPagoFacturaForm(formData: FormData) {
   const facturaId = formData.get("facturaId") as string;
   const metodoPago = formData.get("metodo") as MetodoPagoInput;
+  const comprobante = formData.get("comprobantePago");
+  const comprobanteFile = comprobante instanceof File && comprobante.size > 0 ? comprobante : null;
+
   if (!facturaId || !metodoPago) {
     return { success: false, message: "Faltan datos para registrar el pago" };
   }
-  return registrarPagoFactura(facturaId, metodoPago);
+  return registrarPagoFactura(facturaId, metodoPago, comprobanteFile);
 }
 
-export async function validarAdelanto(facturaId: string, userId?: string) {
-  try {
-    const validadoPorId = userId || (await prisma.user.findFirst())?.id || null;
-    await prisma.factura.update({
-      where: { id: facturaId },
-      data: {
-        estadoAdelanto: "VALIDADO",
-        fechaValidacion: new Date(),
-        validadoPorId,
-      },
-    });
-    revalidatePath("/facturacion");
-    revalidatePath("/agenda");
-    revalidatePath("/atencion");
-    return { success: true };
-  } catch (error) {
-    console.error("Error al validar adelanto:", error);
-    return { success: false, message: "Error al validar adelanto" };
-  }
-}
-
-export async function rechazarAdelanto(facturaId: string, observacion?: string) {
-  try {
-    await prisma.factura.update({
-      where: { id: facturaId },
-      data: {
-        estadoAdelanto: "RECHAZADO",
-        observacionPago: observacion || "Comprobante rechazado por recepción.",
-      },
-    });
-    revalidatePath("/facturacion");
-    revalidatePath("/agenda");
-    revalidatePath("/atencion");
-    return { success: true };
-  } catch (error) {
-    console.error("Error al rechazar adelanto:", error);
-    return { success: false, message: "Error al rechazar adelanto" };
-  }
-}
-
-export async function cobrarSaldoFactura(facturaId: string, metodoPago: MetodoPagoInput) {
+export async function cobrarSaldoFactura(facturaId: string, metodoPago: MetodoPagoInput, comprobanteFile?: File | null) {
   try {
     const factura = await prisma.factura.findUnique({
       where: { id: facturaId },
@@ -112,12 +75,30 @@ export async function cobrarSaldoFactura(facturaId: string, metodoPago: MetodoPa
       return { success: false, message: "Factura no encontrada" };
     }
 
+    let comprobanteDatos: Uint8Array<ArrayBuffer> | null = null;
+    let comprobanteTipo: string | null = null;
+
+    if (comprobanteFile && comprobanteFile.size > 0) {
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+      if (!allowedTypes.includes(comprobanteFile.type)) {
+        return { success: false, message: "El comprobante debe ser JPG/PNG/WebP o PDF." };
+      }
+      if (comprobanteFile.size > 5 * 1024 * 1024) {
+        return { success: false, message: "El comprobante no debe superar los 5 MB." };
+      }
+      const buf = await comprobanteFile.arrayBuffer();
+      comprobanteDatos = new Uint8Array(buf) as Uint8Array<ArrayBuffer>;
+      comprobanteTipo = comprobanteFile.type;
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.factura.update({
         where: { id: facturaId },
         data: {
           estadoPago: "PAGADO",
           metodoPago,
+          fechaValidacion: new Date(),
+          ...(comprobanteDatos ? { comprobanteDatos, comprobanteTipo } : {}),
         },
       });
 
@@ -133,21 +114,22 @@ export async function cobrarSaldoFactura(facturaId: string, metodoPago: MetodoPa
     return { success: true };
   } catch (error) {
     console.error("Error al cobrar saldo:", error);
-    return { success: false, message: "Error al cobrar saldo" };
+    return { success: false, message: "Error al cobrar el saldo" };
   }
 }
 
-/** Wrapper que extrae metodo del FormData y llama a cobrarSaldoFactura */
 export async function cobrarSaldoFacturaForm(formData: FormData) {
   const facturaId = formData.get("facturaId") as string;
   const metodoPago = formData.get("metodo") as MetodoPagoInput;
+  const comprobante = formData.get("comprobantePago");
+  const comprobanteFile = comprobante instanceof File && comprobante.size > 0 ? comprobante : null;
+
   if (!facturaId || !metodoPago) {
     return { success: false, message: "Faltan datos para cobrar el saldo" };
   }
-  return cobrarSaldoFactura(facturaId, metodoPago);
+  return cobrarSaldoFactura(facturaId, metodoPago, comprobanteFile);
 }
 
-// Obtener todas las facturas del día y estadísticas
 export async function getFacturacionDashboardData() {
   try {
     const today = new Date();
@@ -180,21 +162,18 @@ export async function getFacturacionDashboardData() {
 
     const formattedFacturas = facturas.map(f => {
       const montoTotal = Number(f.montoTotal) || 0;
-      const montoAdelanto = Number(f.montoAdelanto) || 0;
-      const adelantoValidado = f.estadoAdelanto === 'VALIDADO' ? montoAdelanto : 0;
-      const saldoPendiente = f.estadoPago === 'PAGADO' ? 0 : Math.max(montoTotal - adelantoValidado, 0);
+      const saldoPendiente = f.estadoPago === 'PAGADO' ? 0 : montoTotal;
       
       if (f.estadoPago === 'PAGADO') {
         ingresosHoy += montoTotal;
         facturasPagadas++;
-      } else if (f.estadoPago === 'PENDIENTE') {
-        ingresosHoy += adelantoValidado;
+      } else {
         cuentasPorCobrar += saldoPendiente;
       }
 
-      if (f.categoria === 'Consulta') desglose.consultas += (f.estadoPago === 'PAGADO' ? montoTotal : adelantoValidado);
-      else if (f.categoria === 'Procedimiento') desglose.procedimientos += (f.estadoPago === 'PAGADO' ? montoTotal : adelantoValidado);
-      else desglose.laboratorio += (f.estadoPago === 'PAGADO' ? montoTotal : adelantoValidado);
+      if (f.categoria === 'Consulta') desglose.consultas += montoTotal;
+      else if (f.categoria === 'Procedimiento') desglose.procedimientos += montoTotal;
+      else desglose.laboratorio += montoTotal;
 
       return {
         id: f.id,
@@ -202,14 +181,10 @@ export async function getFacturacionDashboardData() {
         pacienteName: `${f.paciente.nombre} ${f.paciente.apellido}`,
         categoria: f.categoria,
         montoTotal,
-        montoAdelanto,
-        adelantoValidado,
         saldoPendiente,
         metodoPago: f.metodoPago || 'N/A',
-        metodoAdelanto: f.metodoAdelanto || 'N/A',
-        estadoAdelanto: f.estadoAdelanto,
-        comprobanteUrl: f.comprobanteUrl,
         observacionPago: f.observacionPago,
+        tieneComprobante: !!f.comprobanteDatos,
         estado: f.estadoPago,
         citaEstado: f.cita.estado,
         citaFecha: f.cita.fechaHoraInicio,

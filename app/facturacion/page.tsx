@@ -2,8 +2,6 @@ import React from 'react';
 import Card from '@/components/Card';
 
 export const dynamic = 'force-dynamic';
-import ComprobantePreview from '@/components/ComprobantePreview';
-import { ValidarBtn, RechazarBtn } from '@/components/ValidarAdelantoBtn';
 import CobrarForm from '@/components/CobrarForm';
 import {
   cobrarSaldoFacturaForm,
@@ -27,7 +25,6 @@ export default async function FacturacionPage() {
   }
 
   const { stats, facturas } = data;
-  const adelantosPorValidar = facturas.filter(f => f.estadoAdelanto === 'COMPROBANTE_ENVIADO');
   const saldosPendientes = facturas.filter(f => f.estado !== 'PAGADO' && f.saldoPendiente > 0 && f.citaEstado === 'PENDIENTE_PAGO');
 
   return (
@@ -83,45 +80,6 @@ export default async function FacturacionPage() {
       {/* Desglose + Tasa de pago */}
       <div className="dashboard-grid">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <Card title="Adelantos por Validar" subtitle="Comprobantes enviados por transferencia, Yape o Plin">
-          <div className="table-responsive">
-            <table className="clinical-table">
-              <thead>
-                <tr>
-                  <th>Paciente</th>
-                  <th>Cita</th>
-                  <th>Método</th>
-                  <th>Adelanto</th>
-                  <th>Comprobante</th>
-                  <th>Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {adelantosPorValidar.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-muted" style={{ textAlign: 'center', padding: '1rem' }}>No hay comprobantes pendientes.</td>
-                  </tr>
-                ) : adelantosPorValidar.map(f => (
-                  <tr key={`adelanto-${f.id}`}>
-                    <td style={{ fontWeight: 600 }}>{f.pacienteName}</td>
-                    <td>{new Date(f.citaFecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                    <td>{f.metodoAdelanto}</td>
-                    <td style={{ color: '#10b981', fontWeight: 700 }}>{formatPEN(f.montoAdelanto)}</td>
-                    <td>
-                      <ComprobantePreview facturaId={f.id} comprobanteUrl={f.comprobanteUrl} />
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                        <ValidarBtn facturaId={f.id} />
-                        <RechazarBtn facturaId={f.id} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
 
         <Card title="Saldos Pendientes por Cobrar" subtitle="Pacientes que terminaron consulta y deben cancelar antes de salir">
           <div className="table-responsive">
@@ -130,9 +88,9 @@ export default async function FacturacionPage() {
                 <tr>
                   <th>Paciente</th>
                   <th>Total</th>
-                  <th>Adelanto Válido</th>
                   <th>Saldo</th>
                   <th>Estado Cita</th>
+                  <th>Comprobante</th>
                   <th>Cobro</th>
                 </tr>
               </thead>
@@ -145,9 +103,15 @@ export default async function FacturacionPage() {
                   <tr key={`saldo-${f.id}`}>
                     <td style={{ fontWeight: 600 }}>{f.pacienteName}</td>
                     <td>{formatPEN(f.montoTotal)}</td>
-                    <td style={{ color: '#10b981', fontWeight: 700 }}>{formatPEN(f.adelantoValidado)}</td>
                     <td style={{ color: 'var(--color-critico)', fontWeight: 800 }}>{formatPEN(f.saldoPendiente)}</td>
                     <td><span className="badge badge-observacion">{f.citaEstado}</span></td>
+                    <td>
+                      {f.tieneComprobante ? (
+                        <a href={`/api/comprobante-pago/${f.id}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color)', fontWeight: 600, fontSize: '0.85rem', textDecoration: 'underline' }}>Ver comprobante</a>
+                      ) : (
+                        <span className="text-muted" style={{ fontSize: '0.8rem' }}>Sin comprobante</span>
+                      )}
+                    </td>
                     <td>
                       <CobrarForm facturaId={f.id} action={cobrarSaldoFacturaForm} buttonLabel="Cobrar y completar" />
                     </td>
@@ -172,9 +136,9 @@ export default async function FacturacionPage() {
                   <th>Paciente</th>
                   <th>Categoría</th>
                   <th>Monto Total</th>
-                  <th>Adelanto</th>
                   <th>Pendiente</th>
                   <th>Método</th>
+                  <th>Comprobante</th>
                   <th>Estado</th>
                   <th>Acción</th>
                 </tr>
@@ -193,11 +157,17 @@ export default async function FacturacionPage() {
                       </span>
                     </td>
                     <td style={{ fontWeight: 700, color: 'var(--secondary-color)' }}>{formatPEN(f.montoTotal)}</td>
-                    <td style={{ color: '#10b981', fontWeight: 600 }}>{formatPEN(f.adelantoValidado)}</td>
                     <td style={{ color: f.estado === 'PAGADO' ? '#64748b' : 'var(--color-critico)', fontWeight: 700 }}>
                       {formatPEN(f.saldoPendiente)}
                     </td>
-                    <td className="text-muted" style={{ fontSize: '0.85rem' }}>{f.metodoPago}</td>
+                    <td className="text-muted" style={{ fontSize: '0.85rem' }}>{f.metodoPago || '-'}</td>
+                    <td>
+                      {f.tieneComprobante ? (
+                        <a href={`/api/comprobante-pago/${f.id}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color)', fontWeight: 600, fontSize: '0.85rem', textDecoration: 'underline' }}>Ver</a>
+                      ) : (
+                        <span className="text-muted" style={{ fontSize: '0.8rem' }}>-</span>
+                      )}
+                    </td>
                     <td>
                       <span className={`badge ${f.estado === 'PAGADO' ? 'badge-estable' : 'badge-critico'}`}>
                         {f.estado === 'PAGADO' ? 'Pagada' : 'Pendiente'}

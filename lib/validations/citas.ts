@@ -7,18 +7,6 @@ export const CitaSchema = z.object({
   fechaHoraInicio: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Fecha de inicio inválida",
   }),
-  montoAdelanto: z.coerce.number().min(0, "El adelanto no puede ser negativo").optional(),
-  metodoAdelanto: z.enum(["EFECTIVO", "TRANSFERENCIA", "YAPE", "PLIN"]).optional(),
-  observacionPago: z.string().max(500, "La observación es demasiado larga").optional(),
-}).superRefine((data, ctx) => {
-  const adelanto = Number(data.montoAdelanto) || 0;
-  if (adelanto > 0 && !data.metodoAdelanto) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["metodoAdelanto"],
-      message: "Debe seleccionar el método del adelanto",
-    });
-  }
 });
 
 export type FormStateAgenda = {

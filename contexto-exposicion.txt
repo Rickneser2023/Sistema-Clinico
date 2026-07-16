@@ -1,0 +1,319 @@
+================================================================================
+                    SISTEMA CLINICO "MEDIHIST" - CONTEXTO PARA EXPOSICION
+================================================================================
+
+1. NOMBRE DEL PROYECTO
+----------------------
+MediHist - Sistema de Gestion Clinica
+Sistema web para la gestion integral de clinicas pequenas/medianas, orientado a
+flujo de pacientes, historias clinicas, facturacion y toma de decisiones.
+
+
+2. PROBLEMATICA
+---------------
+Las clinicas pequenas/medianas en Peru enfrentan problemas como:
+- Gestion manual de citas que genera errores de doble agendamiento
+- Historias clinicas en papel dificultan el seguimiento del paciente
+- Falta de control en cobros y pagos (adelantos, saldos pendientes)
+- No hay dashboards para que la gerencia tome decisiones basadas en datos
+- Ausencia de un flujo integrado que conecte: recepcion -> sala de espera ->
+  atencion medica -> facturacion
+
+El sistema resuelve estos problemas con una plataforma web centralizada.
+
+
+3. TECNOLOGIAS UTILIZADAS
+--------------------------
+
+FRONTEND:
+  - Next.js 16.2.3 (App Router)          -> Framework fullstack React
+  - React 19.2.4                           -> Libreria de interfaces
+  - TypeScript 5.x                         -> Tipado estatico
+  - Tailwind CSS v4                        -> Estilos utilitarios
+  - Recharts                               -> Graficos para dashboards
+
+BACKEND / API:
+  - Server Actions ("use server")           -> Funciones ejecutadas en el servidor
+    (el proyecto NO usa API REST, usa Server Actions como patron principal)
+  - API Routes (Routes Handler)             -> Solo 2 endpoints legacy
+    (/api/users y /api/comprobante/[id])
+
+BASE DE DATOS:
+  - PostgreSQL 15                           -> Base de datos relacional
+  - Prisma 6.19.3 (ORM)                    -> Mapeo objeto-relacional
+  - 12 migraciones de esquema               -> Control de versiones de BD
+
+VALIDACION:
+  - Zod 3.23.8                             -> Validacion de formularios
+    (schemas en lib/validations/)
+
+AUTENTICACION:
+  - Custom (sin NextAuth)                   -> Login con email + password
+  - Node crypto (scrypt)                   -> Hash de passwords
+  - localStorage + Context API             -> Sesion en el cliente
+
+DEPLOY / INFRAESTRUCTURA:
+  - Render.com (Blueprint)                 -> Hosting + BD manejada
+  - Docker + docker-compose.yml            -> Desarrollo local
+  - output: "standalone"                   -> Build optimizado de Next.js
+
+
+4. ARQUITECTURA DEL SISTEMA
+----------------------------
+
+  [Browser] <-> [Next.js Server (App Router)]
+                      |
+              +-------+-------+
+              |               |
+        [Server Actions]  [Server Components]
+        (mutations/CRUD)  (lectura de datos)
+              |               |
+              +-------+-------+
+                      |
+               [Prisma ORM]
+                      |
+               [PostgreSQL]
+
+Patron arquitectonico:
+- Server Components para PAGINAS (leer datos directamente de BD en el servidor)
+- Server Actions para OPERACIONES (crear, actualizar, eliminar)
+- Client Components solo para INTERACTIVIDAD (formularios, modales, Kanban)
+- Validacion Zod en el servidor antes de tocar la BD
+
+
+5. MODELO DE BASE DE DATOS (8 tablas principales)
+---------------------------------------------------
+
+  Especialidad (catalogo de precios y areas)
+       |
+  +---------+
+  |         |
+ Medico   Box (consultorios)
+  |         |
+  +----+----+
+       |
+     Cita <-----> Factura (1 a 1)
+       |
+    Paciente
+       |
+  HistoriaClinica
+
+Enums importantes:
+  - Role: ADMIN, DOCTOR, RECEPCIONISTA
+  - EstadoCita: PROGRAMADA -> EN_CURSO -> COMPLETADA | PENDIENTE_PAGO | CANCELADA
+  - EstadoPago: PENDIENTE, PAGADO, ANULADA
+  - EstadoAdelanto: NO_REQUIERE, PENDIENTE, COMPROBANTE_ENVIADO, VALIDADO, RECHAZADO
+  - MetodoPago: EFECTIVO, TARJETA, TRANSFERENCIA, YAPE, PLIN
+
+
+6. FLUJO PRINCIPAL: SALA DE ESPERA -> NUEVA HISTORIA -> PACIENTES
+=================================================================
+
+Este es el flujo central del sistema. Lo describo paso a paso:
+
+PASO 1: AGENDA (se crea la cita)
+  Ubicacion: /agenda (agendamiento semanal)
+  Responsable: Recepcionista
+  Que pasa:
+    a) El recepcionista selecciona paciente, medico, box, fecha/hora
+    b) Se valida solapamiento de horarios (medico y box)
+    c) Se crea la Cita con estado PROGRAMADA
+    d) Se crea automaticamente una Factura PENDIENTE con el precio
+       base de la especialidad del box
+    e) Si hay adelanto, se adjunta comprobante (almacenado en BD como Bytes)
+
+PASO 2: SALA DE ESPERA (gestion del dia)
+  Ubicacion: /atencion (tablero Kanban)
+  Responsable: Recepcionista / Doctor
+  Que pasa:
+    a) Se muestran todas las citas del dia en un tablero Kanban con 4 columnas:
+       [En Espera] -> [En Consulta] -> [Atendido] -> [Pendiente de Pago]
+    b) El recepcionista puede mover tarjetas entre columnas
+    c) Al hacer clic en "Iniciar Consulta":
+       - La cita cambia de PROGRAMADA -> EN_CURSO
+       - Se REDIRIGE automaticamente a /nueva-historia con los datos pre-cargados
+         (pacienteId, medicoId, citaId en query params)
+    d) Si hay saldo pendiente, aparece boton "Ir a Caja" que lleva a /facturacion
+    e) Se usa useOptimistic de React para actualizaciones instantaneas sin esperar
+       la respuesta del servidor ( UX optimista )
+
+PASO 3: NUEVA HISTORIA CLINICA (atencion medica)
+  Ubicacion: /nueva-historia?patientId=X&medicoId=Y&citaId=Z
+  Responsable: Doctor
+  Que pasa:
+    a) La pagina Server Component trae pacientes y medicos activos de la BD
+    b) El formulario (Client Component) tiene campos para:
+       - Datos del paciente (seleccionar existente o crear nuevo "de frente")
+       - Signos vitales: presion arterial, pulso, temperatura, peso
+       - Motivo de consulta
+       - Sintomas
+       - Diagnostico
+       - Plan de tratamiento
+       - Medico tratante
+       - Precio final (ajustable)
+    c) TODOS los campos se validan con Zod en el SERVIDOR antes de guardar
+    d) La creacion usa una TRANSACCION de Prisma (atomicidad):
+       - Si es paciente nuevo: se crea el paciente
+       - Se crea la HistoriaClinica
+       - Si tiene citaId (flujo normal):
+         * Se actualiza la Factura con el precio final
+         * Se calcula saldo: montoTotal - adelantoValidado
+         * Si saldo > 0: cita queda en PENDIENTE_PAGO -> redirige a /facturacion
+         * Si saldo = 0: cita queda COMPLETADA -> redirige a /atencion
+       - Si NO tiene citaId (paciente "de frente", sin cita previa):
+         * Se crea una Cita "fantasma" con estado PENDIENTE_PAGO
+         * Se crea una Factura desde cero
+         * Se redirige a /facturacion para cobrar
+
+PASO 4: FACTURACION / CAJA (cobro)
+  Ubicacion: /facturacion
+  Responsable: Recepcionista / Cajero
+  Que pasa:
+    a) Dashboard con KPIs: ingresos del dia, consultas cobradas,
+       procedimientos, cuentas por cobrar
+    b) Tabla de adelantos por validar (comprobantes de transferencia/Yape/Plin)
+       - El recepcionista puede VALIDAR o RECHAZAR comprobantes
+       - Comprobantes se almacenan como Bytes en PostgreSQL
+    c) Tabla de saldos pendientes
+       - El cajero cobra el saldo restante seleccionando metodo de pago
+       - Al cobrar, la cita pasa a COMPLETADA
+    d) Lista de ultimas facturas del dia con sus estados
+    e) Panel lateral: tasa de pago y desglose por categoria
+       (Consultas, Procedimientos, Laboratorio)
+
+FLUJO COMPLETO RESUMIDO:
+  Recepcionista agenda cita
+    -> Cita queda PROGRAMADA
+      -> Aparece en Sala de Espera (columna "En Espera")
+        -> Recepcionista inicia consulta
+          -> Paciente pasa a "En Consulta" (EN_CURSO)
+            -> Se abre Nueva Historia Clinica
+              -> Doctor llena formulario y guarda
+                -> Si hay saldo pendiente:
+                    -> Paciente va a Caja (PENDIENTE_PAGO)
+                      -> Cajero cobra -> Cita COMPLETADA
+                -> Si no hay saldo:
+                    -> Cita COMPLETADA directamente
+
+
+7. OTROS MODULOS DEL SISTEMA
+------------------------------
+
+- PACIENTES (/pacientes):
+  Listado con busqueda, filtros por genero/estado, paginacion.
+  Vista detallada con tabs: datos personales, historias clinicas, PDF export.
+
+- MEDICOS Y BOXES (/medicos):
+  CRUD de medicos (asignados a especialidades) y boxes (consultorios).
+
+- DASHBOARD GENERAL (/):
+  KPIs: pacientes activos, citas programadas, consultas del dia, eficiencia.
+  Graficos: crecimiento de pacientes, distribucion por especialidad.
+
+- DASHBOARD EJECUTIVO (/ejecutivo):
+  KPIs estrategicos: ingreso mensual, tasa de cancelacion, retencion.
+  Graficos: evolucion de ingresos, rentabilidad por especialidad,
+  eficiencia de medicos.
+
+- REPORTES (/ejecutivo/reportes):
+  Generador de reportes de citas, historias y financieros con filtros.
+
+- CONFIGURACION (/configuracion):
+  Gestion de usuarios, roles (ADMIN/DOCTOR/RECEPCIONISTA) y permisos
+  por modulo. Solo accesible por ADMIN.
+
+
+8. SISTEMA DE PERMISOS
+-----------------------
+  Roles: ADMIN, DOCTOR, RECEPCIONISTA
+  Cada modulo tiene un moduleKey (dashboard, ejecutivo, atencion, agenda,
+  facturacion, medicos, pacientes, nueva-historia, reportes, configuracion).
+  La tabla RolePermission controla que modulos puede ver cada rol.
+  El Sidebar se filtra dinamicamente segun los permisos del usuario logueado.
+
+
+9. DECISIONES TECNICAS RELEVANTES (para responder jurados)
+-----------------------------------------------------------
+
+P: Por que Server Actions y no API REST?
+R: Server Actions eliminan la necesidad de crear endpoints manuales, hooks
+   fetch, y gestionar loading states manualmente. El formulario llama
+   directamente a la funcion del servidor. Next.js maneja la serializacion.
+
+P: Por que Prisma y no otro ORM?
+R: Prisma ofrece type-safety completo con TypeScript, migraciones
+   declarativas, y un client generado automaticamente. Es ideal para
+   proyectos donde la integridad referencial es critica (clinica).
+
+P: Por que Zod para validacion?
+R: Zod permite definir schemas que validan en el servidor y generan
+   tipos TypeScript. Se valida ANTES de llegar a la BD, previniendo
+   datos corruptos. Ejemplo: presion arterial regex /^\d{2,3}\/\d{2,3}$/.
+
+P: Como manejas la concurrencia (dos recepcionistas agendando)?
+R: Se verifica solapamiento de horarios (medico Y box) antes de crear la
+   cita. Prisma ejecuta la verificacion y creacion en secuencia.
+
+P: Por que almacenar comprobantes en la BD (Bytes) y no en archivos?
+R: Simplifica el deploy (no hay que gestionar volumenes de almacenamiento),
+   los comprobantes se backups automaticamente con la BD, y se eliminan
+   problemas de paths/URLs en diferentes entornos.
+
+P: Que es "paciente de frente"?
+R: Un paciente que llega sin cita previa. El doctor crea la historia
+   clinica directamente. El sistema crea automaticamente una cita y factura
+   "fantasma" para que el paciente pase por caja antes de irse.
+
+P: Por que useOptimistic en el Kanban?
+R: Para que la UI responda inmediatamente al usuario (mover tarjeta)
+   mientras el servidor procesa. Si falla, se revierte con router.refresh().
+
+P: Que tecnologias usarias si tuvieras que escalar?
+R: Next.js ya soporta SSR/SSG para escalar. Para mayor concurrencia:
+   Redis para sesiones, colas de mensajes (BullMQ) para reportes pesados,
+   y un CDN para assets estaticos.
+
+
+10. ESTRUCTURA DE ARCHIVOS CLAVE
+---------------------------------
+
+  app/
+    page.tsx                    -> Dashboard General
+    layout.tsx                  -> Layout raiz (ThemeProvider, Auth, Sidebar)
+    actions/
+      auth.ts                   -> Login, obtener usuario
+      agenda.ts                 -> CRUD de Citas, creacion de Facturas
+      historia.ts               -> Crear Historia Clinica + facturacion
+      facturacion.ts            -> Pagos, validacion de adelantos, dashboard
+      pacientes.ts              -> Busqueda y listado de pacientes
+      dashboard.ts              -> KPIs y graficos
+      reportes.ts               -> Reportes financieros y clinicos
+      usuarios.ts               -> CRUD de usuarios y permisos
+      infraestructura.ts        -> CRUD de medicos, boxes, especialidades
+    atencion/
+      page.tsx                  -> Server Component (carga citas del dia)
+      KanbanAtencion.tsx        -> Client Component (tablero interactivo)
+    nueva-historia/
+      page.tsx                  -> Server Component (carga pacientes/medicos)
+      HistoriaForm.tsx          -> Client Component (formulario clinico)
+    facturacion/
+      page.tsx                  -> Server Component (dashboard de caja)
+    pacientes/
+      page.tsx                  -> Client Component (listado con busqueda)
+      [id]/page.tsx             -> Server Component (detalle de paciente)
+  components/
+    CobrarForm.tsx              -> Formulario de cobro con metodo de pago
+    ComprobantePreview.tsx      -> Modal para ver comprobantes
+    ValidarAdelantoBtn.tsx      -> Botones validar/rechazar comprobantes
+    AuthProvider.tsx             -> Context de autenticacion (client-side)
+    Sidebar.tsx                 -> Navegacion filtrada por permisos
+  lib/
+    prisma.ts                   -> Singleton de PrismaClient
+    password.ts                 -> Hash con scrypt (Node crypto)
+    validations/                -> Schemas Zod (citas, historia, pacientes)
+  prisma/
+    schema.prisma               -> Modelo de datos completo
+    seed.ts                     -> Datos de demo (6 especialidades, 6 boxes,
+                                   2 usuarios, ~30 pacientes, historial clinico)
+
+================================================================================
