@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react';
 import Card from '@/components/Card';
 import { 
   createMedico, 
+  updateMedico,
   toggleMedicoEstado, 
   deleteMedico, 
   createBox, 
@@ -16,6 +17,7 @@ import {
 interface Medico {
   id: string;
   especialidad: string;
+  especialidades: string[];
   numColegiatura: string;
   estado: "ACTIVO" | "INACTIVO";
   user: {
@@ -48,12 +50,22 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Form Medico
+  // Form Medico (crear)
   const [showMedicoForm, setShowMedicoForm] = useState(false);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
-  const [especialidad, setEspecialidad] = useState(''); // Contiene el especialidadId seleccionado
+  const [especialidad, setEspecialidad] = useState('');
   const [numColegiatura, setNumColegiatura] = useState('');
+  const [medicoEspIds, setMedicoEspIds] = useState<string[]>([]);
+
+  // Edit Medico
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editMedicoId, setEditMedicoId] = useState('');
+  const [editNombre, setEditNombre] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editEspecialidad, setEditEspecialidad] = useState('');
+  const [editNumColegiatura, setEditNumColegiatura] = useState('');
+  const [editEspIds, setEditEspIds] = useState<string[]>([]);
 
   // Form Box
   const [showBoxForm, setShowBoxForm] = useState(false);
@@ -67,6 +79,10 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
   const [espNombre, setEspNombre] = useState('');
   const [espPrecioBase, setEspPrecioBase] = useState('0.00');
 
+  const toggleEspInList = (ids: string[], setIds: (v: string[]) => void, espId: string) => {
+    setIds(ids.includes(espId) ? ids.filter(i => i !== espId) : [...ids, espId]);
+  };
+
   const handleAddMedico = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData();
@@ -74,6 +90,7 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
     formData.append("email", email);
     formData.append("especialidadId", especialidad);
     formData.append("numColegiatura", numColegiatura);
+    formData.append("especialidadesIds", JSON.stringify(medicoEspIds));
 
     startTransition(async () => {
       setErrorMsg(null);
@@ -85,7 +102,40 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
         setEmail('');
         setEspecialidad('');
         setNumColegiatura('');
+        setMedicoEspIds([]);
         setShowMedicoForm(false);
+      }
+    });
+  };
+
+  const openEditForm = (m: Medico) => {
+    setEditMedicoId(m.id);
+    setEditNombre(m.user.nombre);
+    setEditEmail(m.user.email);
+    setEditEspecialidad(especialidades.find(e => e.nombre === m.especialidad)?.id || '');
+    setEditNumColegiatura(m.numColegiatura);
+    setEditEspIds(m.especialidades.filter(n => n !== m.especialidad).map(n => especialidades.find(e => e.nombre === n)?.id).filter(Boolean) as string[]);
+    setShowEditForm(true);
+    setShowMedicoForm(false);
+  };
+
+  const handleEditMedico = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append("medicoId", editMedicoId);
+    formData.append("nombre", editNombre);
+    formData.append("email", editEmail);
+    formData.append("especialidadId", editEspecialidad);
+    formData.append("numColegiatura", editNumColegiatura);
+    formData.append("especialidadesIds", JSON.stringify(editEspIds));
+
+    startTransition(async () => {
+      setErrorMsg(null);
+      const res = await updateMedico(null as any, formData);
+      if (!res.success) {
+        setErrorMsg(res.error || "Error al actualizar");
+      } else {
+        setShowEditForm(false);
       }
     });
   };
@@ -175,6 +225,32 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
     });
   };
 
+  const EspSelector = ({ ids, setIds }: { ids: string[], setIds: (v: string[]) => void }) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+      {especialidades.map(esp => (
+        <label
+          key={esp.id}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.35rem',
+            padding: '0.3rem 0.65rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600,
+            cursor: 'pointer', border: '1px solid var(--border-color)',
+            backgroundColor: ids.includes(esp.id) ? 'rgba(59,130,246,0.12)' : 'transparent',
+            color: ids.includes(esp.id) ? '#3b82f6' : 'var(--secondary-light)',
+            transition: 'all 0.15s'
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={ids.includes(esp.id)}
+            onChange={() => toggleEspInList(ids, setIds, esp.id)}
+            style={{ width: 14, height: 14, accentColor: '#3b82f6', cursor: 'pointer' }}
+          />
+          {esp.nombre}
+        </label>
+      ))}
+    </div>
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', width: '100%' }}>
       
@@ -207,7 +283,7 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Personal Médico</h2>
             <button 
               className="btn btn-primary btn-sm"
-              onClick={() => setShowMedicoForm(!showMedicoForm)}
+              onClick={() => { setShowMedicoForm(!showMedicoForm); setShowEditForm(false); }}
             >
               {showMedicoForm ? "Cancelar" : "+ Registrar Médico"}
             </button>
@@ -225,11 +301,11 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
                   <input type="email" className="form-control" value={email} onChange={e => setEmail(e.target.value)} required />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Especialidad del Médico</label>
+                  <label className="form-label">Especialidad Principal (usa esta para precios en agenda)</label>
                   <select 
                     className="form-control" 
                     value={especialidad} 
-                    onChange={e => setEspecialidad(e.target.value)} 
+                    onChange={e => { setEspecialidad(e.target.value); if (!medicoEspIds.includes(e.target.value)) setMedicoEspIds([...medicoEspIds, e.target.value]); }}
                     required
                   >
                     <option value="">-- SELECCIONE ESPECIALIDAD --</option>
@@ -237,6 +313,10 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
                       <option key={esp.id} value={esp.id}>{esp.nombre} (${esp.precioBase.toFixed(2)})</option>
                     ))}
                   </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Otras Especialidades</label>
+                  <EspSelector ids={medicoEspIds} setIds={setMedicoEspIds} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Nº Colegiatura</label>
@@ -249,6 +329,51 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
             </Card>
           )}
 
+          {showEditForm && (
+            <Card title="Editar Médico">
+              <form onSubmit={handleEditMedico} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Nombre Completo</label>
+                  <input type="text" className="form-control" value={editNombre} onChange={e => setEditNombre(e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Correo Electrónico</label>
+                  <input type="email" className="form-control" value={editEmail} onChange={e => setEditEmail(e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Especialidad Principal</label>
+                  <select 
+                    className="form-control" 
+                    value={editEspecialidad} 
+                    onChange={e => { setEditEspecialidad(e.target.value); if (!editEspIds.includes(e.target.value)) setEditEspIds([...editEspIds, e.target.value]); }}
+                    required
+                  >
+                    <option value="">-- SELECCIONE ESPECIALIDAD --</option>
+                    {especialidades.map(esp => (
+                      <option key={esp.id} value={esp.id}>{esp.nombre} (${esp.precioBase.toFixed(2)})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Otras Especialidades</label>
+                  <EspSelector ids={editEspIds} setIds={setEditEspIds} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Nº Colegiatura</label>
+                  <input type="text" className="form-control" placeholder="Ej: CMP-98213" value={editNumColegiatura} onChange={e => setEditNumColegiatura(e.target.value)} required />
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button type="submit" className="btn btn-primary" disabled={isPending}>
+                    {isPending ? "Guardando..." : "Guardar Cambios"}
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowEditForm(false)}>
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </Card>
+          )}
+
           <Card title="Listado de Médicos" subtitle="Médicos autorizados e integrados en agenda">
             <div className="table-responsive">
               <table className="clinical-table">
@@ -256,7 +381,8 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
                   <tr>
                     <th>Nombre</th>
                     <th>Colegiatura</th>
-                    <th>Especialidad</th>
+                    <th>Especialidad Principal</th>
+                    <th>Otras Especialidades</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                   </tr>
@@ -268,12 +394,31 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
                       <td style={{ fontSize: '0.85rem' }}>{m.numColegiatura}</td>
                       <td>{m.especialidad}</td>
                       <td>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                          {m.especialidades.filter(n => n !== m.especialidad).map(esp => (
+                            <span key={esp} style={{ fontSize: '0.7rem', padding: '0.15rem 0.45rem', borderRadius: '4px', backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6', fontWeight: 600 }}>
+                              {esp}
+                            </span>
+                          ))}
+                          {m.especialidades.filter(n => n !== m.especialidad).length === 0 && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--secondary-light)' }}>—</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
                         <span className={`badge ${m.estado === 'ACTIVO' ? 'badge-estable' : 'badge-critico'}`}>
                           {m.estado}
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                          <button 
+                            className="btn btn-outline btn-sm"
+                            onClick={() => openEditForm(m)}
+                            disabled={isPending}
+                          >
+                            Editar
+                          </button>
                           <button 
                             className="btn btn-outline btn-sm"
                             onClick={() => handleToggleEstado(m.id, m.estado)}
@@ -295,7 +440,7 @@ export default function MedicosManager({ medicos, boxes, especialidades }: Medic
                   ))}
                   {medicos.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--secondary-light)' }}>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--secondary-light)' }}>
                         No hay médicos registrados.
                       </td>
                     </tr>

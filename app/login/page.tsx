@@ -39,14 +39,8 @@ export default function LoginPage() {
       <div className="login-card">
         <div className="login-header">
           <div className="login-logo">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <rect width="40" height="40" rx="10" fill="var(--primary-color)" />
-              <path d="M20 8v24M8 20h24" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
-              <circle cx="20" cy="20" r="6" stroke="white" strokeWidth="2.5" fill="none" />
-            </svg>
-            <span className="login-logo-text">Silvestre Clinic Manager</span>
+            <img src="/Logo-grande.jpeg" alt="Consultorio Médico Dr. Silvestre" style={{ maxWidth: '280px', width: '100%', height: 'auto', borderRadius: '12px' }} />
           </div>
-          <h1 className="login-title">Sistema de Gestión Clínica</h1>
           <p className="login-subtitle">Inicia sesión para acceder al panel</p>
         </div>
 

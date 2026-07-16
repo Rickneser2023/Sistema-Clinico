@@ -2021,7 +2021,7 @@ textarea.form-control {
   height: 600px;
   top: -200px;
   right: -150px;
-  background: radial-gradient(circle, rgba(2, 132, 199, 0.08) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(30, 64, 175, 0.08) 0%, transparent 70%);
 }
 
 .login-bg-circle--2 {

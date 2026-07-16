@@ -10,6 +10,9 @@ export async function getMedicos() {
       include: {
         user: true,
         especialidad: true,
+        especialidadesMedico: {
+          include: { especialidad: true }
+        }
       },
       orderBy: {
         user: { nombre: 'asc' }
@@ -27,13 +30,13 @@ export async function createMedico(formData: FormData) {
   const email = formData.get("email") as string;
   const especialidadId = formData.get("especialidadId") as string;
   const numColegiatura = formData.get("numColegiatura") as string;
+  const especialidadesIdsRaw = formData.get("especialidadesIds") as string | null;
 
   if (!nombre || !email || !especialidadId || !numColegiatura) {
     return { error: "Todos los campos son obligatorios" };
   }
 
   try {
-    // 1. Validar si ya existe la colegiatura o email
     const existingMedico = await prisma.medico.findUnique({ where: { numColegiatura } });
     if (existingMedico) {
       return { error: "El número de colegiatura ya está registrado" };
@@ -44,11 +47,13 @@ export async function createMedico(formData: FormData) {
       return { error: "El correo electrónico ya está en uso" };
     }
 
-    // 2. Generar contraseña temporal hasheada
     const tempPassword = Math.random().toString(36).slice(-10) + "Aa1!";
     const passwordHash = await hashPassword(tempPassword);
 
-    // 3. Crear User y Medico
+    const especialidadesIds = especialidadesIdsRaw
+      ? JSON.parse(especialidadesIdsRaw)
+      : [especialidadId];
+
     await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -59,12 +64,20 @@ export async function createMedico(formData: FormData) {
         }
       });
 
-      await tx.medico.create({
+      const medico = await tx.medico.create({
         data: {
           especialidadId,
           numColegiatura,
           userId: user.id
         }
+      });
+
+      const uniqueEspIds = [...new Set([especialidadId, ...especialidadesIds])];
+      await tx.medicoEspecialidad.createMany({
+        data: uniqueEspIds.map(espId => ({
+          medicoId: medico.id,
+          especialidadId: espId,
+        })),
       });
     });
 
@@ -73,6 +86,77 @@ export async function createMedico(formData: FormData) {
   } catch (error) {
     console.error("Error creating medico:", error);
     return { error: "Error en el servidor al registrar el médico" };
+  }
+}
+
+export async function updateMedico(prevState: any, formData: FormData) {
+  const medicoId = formData.get("medicoId") as string;
+  const nombre = formData.get("nombre") as string;
+  const email = formData.get("email") as string;
+  const especialidadId = formData.get("especialidadId") as string;
+  const numColegiatura = formData.get("numColegiatura") as string;
+  const especialidadesIdsRaw = formData.get("especialidadesIds") as string | null;
+
+  if (!medicoId || !nombre || !email || !especialidadId || !numColegiatura) {
+    return { success: false, error: "Todos los campos son obligatorios" };
+  }
+
+  try {
+    const medico = await prisma.medico.findUnique({
+      where: { id: medicoId },
+      select: { userId: true, numColegiatura: true }
+    });
+
+    if (!medico) {
+      return { success: false, error: "Médico no encontrado" };
+    }
+
+    if (numColegiatura !== medico.numColegiatura) {
+      const existing = await prisma.medico.findUnique({ where: { numColegiatura } });
+      if (existing) {
+        return { success: false, error: "El número de colegiatura ya está en uso" };
+      }
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: medico.userId } });
+    if (user && email !== user.email) {
+      const existingEmail = await prisma.user.findUnique({ where: { email } });
+      if (existingEmail) {
+        return { success: false, error: "El correo electrónico ya está en uso" };
+      }
+    }
+
+    const especialidadesIds = especialidadesIdsRaw
+      ? JSON.parse(especialidadesIdsRaw)
+      : [especialidadId];
+
+    const uniqueEspIds = [...new Set([especialidadId, ...especialidadesIds])];
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: medico.userId },
+        data: { nombre, email }
+      });
+
+      await tx.medico.update({
+        where: { id: medicoId },
+        data: { especialidadId, numColegiatura }
+      });
+
+      await tx.medicoEspecialidad.deleteMany({ where: { medicoId } });
+      await tx.medicoEspecialidad.createMany({
+        data: uniqueEspIds.map(espId => ({
+          medicoId,
+          especialidadId: espId,
+        })),
+      });
+    });
+
+    revalidatePath("/medicos");
+    return { success: true, message: "Médico actualizado correctamente" };
+  } catch (error) {
+    console.error("Error updating medico:", error);
+    return { success: false, error: "Error en el servidor al actualizar el médico" };
   }
 }
 
@@ -93,7 +177,6 @@ export async function toggleMedicoEstado(medicoId: string, currentState: "ACTIVO
 
 export async function deleteMedico(medicoId: string) {
   try {
-    // Buscar el médico y su user
     const medico = await prisma.medico.findUnique({
       where: { id: medicoId }
     });
@@ -102,8 +185,8 @@ export async function deleteMedico(medicoId: string) {
       return { error: "Médico no encontrado" };
     }
 
-    // Usamos transacción para borrar ambos
     await prisma.$transaction(async (tx) => {
+      await tx.medicoEspecialidad.deleteMany({ where: { medicoId } });
       await tx.medico.delete({ where: { id: medicoId } });
       await tx.user.delete({ where: { id: medico.userId } });
     });
@@ -112,7 +195,6 @@ export async function deleteMedico(medicoId: string) {
     return { success: true };
   } catch (error) {
     console.error("Error deleting medico:", error);
-    // Si tiene historias clínicas, fallará por onDelete: Restrict
     return { error: "No se puede eliminar un médico con historias clínicas registradas. Desactívelo en su lugar." };
   }
 }

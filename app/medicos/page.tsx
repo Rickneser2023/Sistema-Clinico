@@ -18,6 +18,10 @@ export default async function MedicosPage() {
   const medicos = (medicosRes.data || []).map((m: any) => ({
     id: m.id,
     especialidad: m.especialidad?.nombre || "Sin Especialidad",
+    especialidades: [
+      m.especialidad?.nombre,
+      ...(m.especialidadesMedico?.map((em: any) => em.especialidad?.nombre) || [])
+    ].filter(Boolean),
     numColegiatura: m.numColegiatura,
     estado: m.estado,
     user: {

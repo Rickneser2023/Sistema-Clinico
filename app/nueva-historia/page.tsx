@@ -4,9 +4,7 @@ import HistoriaForm from './HistoriaForm';
 
 export const dynamic = 'force-dynamic';
 
-// Server Component asincrónico para traer pacientes y doctores
 export default async function NewHistoryPage() {
-  // Traer pacientes para poblar el select
   const pacientes = await prisma.paciente.findMany({
     orderBy: { nombre: 'asc' },
     select: {
@@ -22,17 +20,26 @@ export default async function NewHistoryPage() {
     }
   });
 
-  // Traer médicos reales (Modelo Medico con su User y Especialidad)
   const doctores = await prisma.medico.findMany({
     where: { estado: 'ACTIVO' },
-    include: { user: true, especialidad: true },
+    include: {
+      user: true,
+      especialidad: true,
+      especialidadesMedico: {
+        include: { especialidad: true }
+      }
+    },
     orderBy: { user: { nombre: 'asc' } }
   });
 
-  // Mapear para el componente
   const doctoresMapped = doctores.map(doc => ({
     id: doc.id,
-    nombre: doc.user.nombre + ' (' + doc.especialidad.nombre + ')',
+    nombre: doc.user.nombre,
+    especialidadPrincipal: doc.especialidad.nombre,
+    especialidades: [
+      doc.especialidad.nombre,
+      ...doc.especialidadesMedico.map(em => em.especialidad.nombre)
+    ],
     precioBase: Number(doc.especialidad.precioBase)
   }));
 

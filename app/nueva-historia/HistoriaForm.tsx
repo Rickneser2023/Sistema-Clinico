@@ -21,6 +21,8 @@ interface Paciente {
 interface Doctor {
   id: string;
   nombre: string;
+  especialidadPrincipal: string;
+  especialidades: string[];
   precioBase: number;
 }
 
@@ -40,7 +42,6 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
     message: null,
   } as FormState);
 
-  // Estados para controlar los campos deshabilitados (Datos Demográficos)
   const [selectedPatientId, setSelectedPatientId] = useState('new');
   
   const [nombre, setNombre] = useState('');
@@ -52,14 +53,17 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
   const [alergias, setAlergias] = useState('');
   const [antecedentes, setAntecedentes] = useState('');
 
-  // Estados para médico y precio
   const [selectedDoctorId, setSelectedDoctorId] = useState(searchParams.get('medicoId') || '');
+  const [selectedEspecialidad, setSelectedEspecialidad] = useState('');
   const [precioFinal, setPrecioFinal] = useState('');
 
-  // Cargar precio cuando se cambia el médico
+  const selectedDoctor = doctores.find(d => d.id === selectedDoctorId);
+  const availableEspecialidades = selectedDoctor?.especialidades || [];
+
   const handleDoctorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const docId = e.target.value;
     setSelectedDoctorId(docId);
+    setSelectedEspecialidad('');
     const doc = doctores.find(d => d.id === docId);
     if (doc) {
       setPrecioFinal(doc.precioBase.toString());
@@ -68,7 +72,6 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
     }
   };
 
-  // Cargar datos si se pasa un patientId por la URL o se selecciona uno
   useEffect(() => {
     const targetId = patientIdParam || selectedPatientId;
     if (targetId && targetId !== 'new') {
@@ -111,8 +114,8 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
         </div>
       )}
 
-      {/* Hidden fields for citaId and authenticated user */}
       <input type="hidden" name="citaId" value={searchParams.get('citaId') || ''} />
+      <input type="hidden" name="especialidadId" value={selectedEspecialidad} />
       {user?.id && <input type="hidden" name="usuarioId" value={user.id} />}
 
       {/* SECCIÓN 1: Selección o Datos Demográficos */}
@@ -393,11 +396,28 @@ export default function HistoriaForm({ pacientes, doctores }: HistoriaFormProps)
             >
               <option value="">-- SELECCIONE MÉDICO --</option>
               {doctores.map((doc) => (
-                <option key={doc.id} value={doc.id}>{doc.nombre}</option>
+                <option key={doc.id} value={doc.id}>{doc.nombre} ({doc.especialidadPrincipal})</option>
               ))}
             </select>
             {state.errors?.doctorId && <span style={{ color: 'red', fontSize: '0.85rem' }}>{state.errors.doctorId.join(', ')}</span>}
           </div>
+
+          {selectedDoctorId && availableEspecialidades.length > 1 && (
+            <div className="form-group">
+              <label htmlFor="especialidadSelect" className="form-label">Especialidad de la Consulta <span>*</span></label>
+              <select 
+                id="especialidadSelect"
+                className="form-control"
+                value={selectedEspecialidad}
+                onChange={e => setSelectedEspecialidad(e.target.value)}
+              >
+                <option value="">-- SELECCIONE ESPECIALIDAD --</option>
+                {availableEspecialidades.map(esp => (
+                  <option key={esp} value={esp}>{esp}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="precioFinal" className="form-label">Precio Base Especialidad (PEN)</label>

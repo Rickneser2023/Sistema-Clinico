@@ -84,7 +84,7 @@ export default function PatientTabsClient({ historias, citas, patientName }: { h
                     {entrada.planTratamiento && (
                       <div className="timeline-block">
                         <span className="timeline-block-title" style={{ color: 'var(--accent-color)' }}>Tratamiento</span>
-                        <p className="timeline-block-text" style={{ fontSize: '0.85rem', backgroundColor: 'white', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--accent-color)', whiteSpace: 'pre-line' }}>
+                        <p className="timeline-block-text" style={{ fontSize: '0.85rem', backgroundColor: 'var(--bg-card)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--accent-color)', whiteSpace: 'pre-line', color: 'var(--secondary-color)' }}>
                           {entrada.planTratamiento}
                         </p>
                       </div>

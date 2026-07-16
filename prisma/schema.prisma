@@ -66,6 +66,9 @@ model Especialidad {
   medicos    Medico[]
   boxes      Box[]
 
+  // Multi-especialidad
+  medicoEspecialidades MedicoEspecialidad[]
+
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -103,7 +106,7 @@ model Medico {
   numColegiatura String       @unique
   estado         EstadoMedico @default(ACTIVO)
 
-  // Relación con Especialidad
+  // Relación con Especialidad principal (para precios/citas por defecto)
   especialidadId String
   especialidad   Especialidad @relation(fields: [especialidadId], references: [id], onDelete: Restrict)
 
@@ -111,12 +114,28 @@ model Medico {
   userId         String       @unique
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Multi-especialidad
+  especialidadesMedico MedicoEspecialidad[]
+
   // Relaciones Inversas
   historias      HistoriaClinica[]
   citas          Cita[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+// Tabla pivote: Médico ↔ Especialidades
+model MedicoEspecialidad {
+  id             String      @id @default(uuid())
+  medicoId       String
+  medico         Medico      @relation(fields: [medicoId], references: [id], onDelete: Cascade)
+  especialidadId String
+  especialidad   Especialidad @relation(fields: [especialidadId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime    @default(now())
+
+  @@unique([medicoId, especialidadId])
 }
 
 // Modelo Box (Consultorio)

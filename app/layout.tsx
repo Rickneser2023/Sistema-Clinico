@@ -8,6 +8,7 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 export const metadata = {
   title: 'Silvestre Clinic Manager',
   description: 'Silvestre Clinic Manager - Sistema de gestión clínica profesional',
+  icons: { icon: '/SC-icono.jpeg' },
 }
 
 export default function RootLayout({

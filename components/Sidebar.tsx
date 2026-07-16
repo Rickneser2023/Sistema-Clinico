@@ -106,11 +106,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <svg width="30" height="30" viewBox="0 0 40 40" fill="none">
-              <rect width="40" height="40" rx="10" fill="var(--primary-color)" />
-              <path d="M20 8v24M8 20h24" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
-              <circle cx="20" cy="20" r="6" stroke="white" strokeWidth="2.5" fill="none" />
-            </svg>
+            <img src="/SC-icono.jpeg" alt="SC" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
             <span className="logo-text">Silvestre Clinic Manager</span>
           </div>
         </div>
